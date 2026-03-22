@@ -4,3 +4,4 @@
 
     exposure_time: 6000
     analog_gain: 32
+    image_rotation: 0

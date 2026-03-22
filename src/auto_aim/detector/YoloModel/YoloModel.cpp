@@ -66,20 +66,20 @@ namespace rm
         float r = std::min(float(tar_h) / in_h, float(tar_w) / in_w);
         int inside_w = round(in_w * r);
         int inside_h = round(in_h * r);
-        padd_w_ = tar_w - inside_w;
-        padd_h_ = tar_h - inside_h;
+        int pad_w = tar_w - inside_w;
+        int pad_h = tar_h - inside_h;
 
         cv::Mat resize_img;
 
         cv::resize(src, resize_img, cv::Size(inside_w, inside_h));
 
-        padd_w_ = padd_w_ / 2;
-        padd_h_ = padd_h_ / 2;
+        padd_w_ = pad_w / 2;
+        padd_h_ = pad_h / 2;
 
-        int top = int(round(padd_h_ - 0.1));
-        int bottom = int(round(padd_h_ + 0.1));
-        int left = int(round(padd_w_ - 0.1));
-        int right = int(round(padd_w_ + 0.1));
+        int top = pad_h / 2;
+        int bottom = pad_h - top;
+        int left = pad_w / 2;
+        int right = pad_w - left;
 
         cv::copyMakeBorder(
             resize_img, resize_img, top, bottom, left, right, 0, cv::Scalar(114, 114, 114));
@@ -95,7 +95,7 @@ namespace rm
     YoloModel::YoloModel(std::string model_path, int image_size)
         :image_size(image_size)
     {
-        model = core.compile_model(model_path, "CPU"); // Ä¬ÈÏ²ÉÓÃcpu¼ÓÔØÄ£ÐÍ
+        model = core.compile_model(model_path, "CPU"); // Ä¬ï¿½Ï²ï¿½ï¿½ï¿½cpuï¿½ï¿½ï¿½ï¿½Ä£ï¿½ï¿½
         iq = model.create_infer_request();
         input_tensor_ = iq.get_input_tensor(0);
     };
@@ -107,9 +107,9 @@ namespace rm
 
     std::vector<Armor> YoloModel::find_armors(cv::Mat src)
     {
-        // Éñ¾­ÍøÂçÍÆÀí
+        // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         std::vector<bbox_t> bbox_ts = forward(src);
-        // ÌÞ³ý±ßÔµÄ¿±ê
+        // ï¿½Þ³ï¿½ï¿½ï¿½ÔµÄ¿ï¿½ï¿½
         bbox_ts = screen_out_edge_targets(bbox_ts, src.cols, src.rows);
         std::vector<Armor> out_armors;
         for (const auto& x : bbox_ts) {
@@ -121,17 +121,17 @@ namespace rm
 
     std::vector<YoloModel::bbox_t> YoloModel::forward(cv::Mat src)
     {
-        // Éè¶¨
+        // ï¿½è¶¨
         double image_width = src.cols;
         double image_height = src.rows;
         src = letterbox(src, image_size, image_size, padd_w_, padd_h_);
         // double start = get_now_time();
         auto input = iq.get_input_tensor(0);
         input.set_shape({ 1,3,static_cast<unsigned long long>(src.cols),static_cast<unsigned long long>(src.rows) });
-        // ×ª»»ÑÕÉ«¿Õ¼ä
+        // ×ªï¿½ï¿½ï¿½ï¿½É«ï¿½Õ¼ï¿½
         cv::cvtColor(src, src, cv::COLOR_BGR2RGB);
         src.convertTo(src, CV_32F, 1.0 / 255.0);
-        // ·ÖÀëÍ¨µÀ²¢¸´ÖÆÊý¾Ýµ½Êä³öÏòÁ¿
+        // ï¿½ï¿½ï¿½ï¿½Í¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ýµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         std::vector<cv::Mat> channels(3);
         cv::split(src, channels);
         float* input_data_host = input.data<float>();
@@ -139,7 +139,7 @@ namespace rm
         std::copy(channels[0].begin<float>(), channels[0].end<float>(), input_data_host + image_area * 0);
         std::copy(channels[1].begin<float>(), channels[1].end<float>(), input_data_host + image_area * 1);
         std::copy(channels[2].begin<float>(), channels[2].end<float>(), input_data_host + image_area * 2);
-        iq.infer(); // ÍÆÀí¹ý³Ì£¬Õâ¿ÉÄÜÊÇ×îºÄÊ±µÄ²¿·Ö
+        iq.infer(); // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½Ä²ï¿½ï¿½ï¿½
         auto output = iq.get_output_tensor(0);
 
         float confidence_threshold = 0.25;
@@ -151,28 +151,28 @@ namespace rm
         float* output_buffer = output.data<float>();
         int TOPK_NUM = output_numbox;
 
-        // ¸ÃËÄµãÄ£ÐÍ²ÉÓÃ 49: ËÄµã·Ö±ðÊÇ×óÉÏ,×óÏÂ,ÓÒÏÂ,ÓÒÉÏ
+        // ï¿½ï¿½ï¿½Äµï¿½Ä£ï¿½Í²ï¿½ï¿½ï¿½ 49: ï¿½Äµï¿½Ö±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½,ï¿½ï¿½ï¿½ï¿½,ï¿½ï¿½ï¿½ï¿½,ï¿½ï¿½ï¿½ï¿½
         // x0 y0 x1 y1 confince ltx lty lbx lby rbx rby rtx rty ==> 0 - 12
-        // 13 - 48 ·ÖÀà,×Ü¹²36ÖÖ
+        // 13 - 48 ï¿½ï¿½ï¿½ï¿½,ï¿½Ü¹ï¿½36ï¿½ï¿½
         std::vector<bbox_t> rst;
         rst.reserve(TOPK_NUM);
         std::vector<uint8_t> removed(TOPK_NUM);
         for (int i = 0; i < TOPK_NUM; i++) {
-            // »ñÈ¡Ã¿Ò»¸öiÁÐÊý¾ÝµÄÎ»ÐÅÏ¢
+            // ï¿½ï¿½È¡Ã¿Ò»ï¿½ï¿½iï¿½ï¿½ï¿½ï¿½ï¿½Ýµï¿½Î»ï¿½ï¿½Ï¢
             auto* box_buffer = output_buffer + i * output_numprob;
-            // ÆäÖÐ4ÎªconfinceÖÃÐÅ¶È
+            // ï¿½ï¿½ï¿½ï¿½4Îªconfinceï¿½ï¿½ï¿½Å¶ï¿½
             if (box_buffer[4] < confidence_threshold) continue;
             if (removed[i]) continue;
             rst.emplace_back();
             auto& box = rst.back();
-            // box_buffer + 5 Î»ÒÆµ½¸ÃµØÖ·
+            // box_buffer + 5 Î»ï¿½Æµï¿½ï¿½Ãµï¿½Ö·
             memcpy(&box.pts, box_buffer + 5, 8 * sizeof(float));
             for (auto& pt : box.pts) {
                 pt.x = (pt.x - padd_w_) / (image_size - 2 * padd_w_) * image_width;
                 pt.y = (pt.y - padd_h_) / (image_size - 2 * padd_h_) * image_height;
             };
             box.confidence = sigmoid(box_buffer[4]);//prob * objness;
-            // ÀàÐÍµÄÖ¸ÕëÎª 13Ö®ºó
+            // ï¿½ï¿½ï¿½Íµï¿½Ö¸ï¿½ï¿½Îª 13Ö®ï¿½ï¿½
             float* pclass = box_buffer + modle_last_length;
             box.label = argmax(pclass, num_classes);
             for (int j = i + 1; j < TOPK_NUM; j++) {
@@ -184,7 +184,7 @@ namespace rm
         };
 
         std::vector<bbox_t> out_rst;
-        // label¹ýÂË
+        // labelï¿½ï¿½ï¿½ï¿½
         for (const auto& rst_ : rst)
             if (strip_filter(rst_.label, this->enemy_blue))
                 out_rst.push_back(rst_);

@@ -1,14 +1,16 @@
 /hik_camera:
   ros__parameters:
-    camera_name: narrow_stereo
+    camera_name: hik_camera
     exposure_time: 6000  # 相机曝光时间
     gain: 32.0 # 增益
+    image_rotation: 180 # 图像旋转角度，仅支持 0/90/180/270 （适配英雄反着装的相机）
 
 /mv_camera:
   ros__parameters:
     camera_name: mv_camera
     exposure_time: 6000  # 相机曝光时间
     analog_gain: 32 # 增益
+    image_rotation: 0 # 图像旋转角度，仅支持 0/90/180/270 （适配英雄反着装的相机）
 
 /auto_aim_detector_node: # 识别节点
   ros__parameters:
@@ -38,8 +40,18 @@
   ros__parameters:
     debug: true
     Coordinate:
-      intrinsic: [2370.573108953692, 0.0, 711.1306749974372, 0.0, 2370.263325810751, 571.3160085742733,0.0, 0.0, 1.0] # 相机内参
-      distcoeffs: [-0.08590936981698154, 1.171532639048541, -0.001884908679011257, -0.0031928983215215, -5.942126178608666]  # 相机外参
+      # intrinsic: [2370.573108953692, 0.0, 711.1306749974372, 0.0, 2370.263325810751, 571.3160085742733,0.0, 0.0, 1.0] # 相机内参
+      # intrinsic:  [1769.30674,    0.     ,  711.59362,
+      #                 0.     , 1769.28742,  562.72304,
+      #                 0.     ,    0.     ,    1.     ]  # intrinsic of hik camera
+      intrinsic:  [1329.11502,    0.     ,  649.51151,
+                      0.     , 1328.3022 ,  463.33489,
+                      0.     ,    0.     ,    1.     ] #intrinsic of mv camera
+      
+      # distcoeffs: [-0.08590936981698154, 1.171532639048541, -0.001884908679011257, -0.0031928983215215, -5.942126178608666]  # 相机外参
+      # distcoeffs: [-0.061714, 0.056389, -0.000796, -0.000933, 0.000000]  # distcoeffs of hik camera
+      distcoeffs: [-0.086638, 0.216226, 0.001555, 0.001249, 0.000000] # distcoeffs of mv camera
+
       shaft_differ_x: 0.0 # 绝对坐标系x方向偏移量
       shaft_differ_y: -4.59 # 绝对坐标系y方向偏移量
       shaft_differ_z: 12.282 # 绝对坐标系z方向偏移量
@@ -127,20 +139,20 @@
 
 /serial_send_data_node: # 传输节点
   ros__parameters:
-    debug: false # 调试模式
+    debug: true # 调试模式
     close_shoot: false # 关火
     negation_send_yaw: true # 对send_yaw取反
     negation_send_pitch: true # 对send_pitch取反
 
 /serial_read_data_node: # 接收节点
   ros__parameters:
-    debug: false # 调试模式
+    debug: true # 调试模式
     negation_read_yaw: true # 对read_yaw取反
     negation_read_pitch: true # 对read_pitch取反
 
 /auto_aim_debug_node: # 调试节点
   ros__parameters:
-    show: false # 显示图像
+    show: true # 显示图像
     show_detect: true # 仅展示detect层
     show_process: false # 仅展示process层
     show_time_cost: false # 展示耗时

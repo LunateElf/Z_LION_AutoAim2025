@@ -18,6 +18,52 @@
 #include <thread>
 #include <vector>
 
+namespace
+{
+bool isValidRotation(const int rotation)
+{
+  return rotation == 0 || rotation == 90 || rotation == 180 || rotation == 270;
+}
+
+std::vector<uint8_t> rotateRgbImage(
+  const std::vector<uint8_t> & src, const int src_width, const int src_height, const int rotation)
+{
+  if (rotation == 0) {
+    return src;
+  }
+
+  const int dst_width = (rotation == 90 || rotation == 270) ? src_height : src_width;
+  const int dst_height = (rotation == 90 || rotation == 270) ? src_width : src_height;
+  std::vector<uint8_t> dst(dst_width * dst_height * 3);
+
+  for (int y = 0; y < src_height; ++y) {
+    for (int x = 0; x < src_width; ++x) {
+      const int src_index = (y * src_width + x) * 3;
+      int dst_x = 0;
+      int dst_y = 0;
+
+      if (rotation == 90) {
+        dst_x = src_height - 1 - y;
+        dst_y = x;
+      } else if (rotation == 180) {
+        dst_x = src_width - 1 - x;
+        dst_y = src_height - 1 - y;
+      } else {  // rotation == 270
+        dst_x = y;
+        dst_y = src_width - 1 - x;
+      }
+
+      const int dst_index = (dst_y * dst_width + dst_x) * 3;
+      dst[dst_index] = src[src_index];
+      dst[dst_index + 1] = src[src_index + 1];
+      dst[dst_index + 2] = src[src_index + 2];
+    }
+  }
+
+  return dst;
+}
+}  // namespace
+
 namespace mindvision_camera
 {
 class MVCameraNode : public rclcpp::Node
@@ -106,15 +152,24 @@ public:
       while (rclcpp::ok()) {
         int status = CameraGetImageBuffer(h_camera_, &s_frame_info_, &pby_buffer_, 1000);
         if (status == CAMERA_STATUS_SUCCESS) {
-          CameraImageProcess(h_camera_, pby_buffer_, image_msg_.data.data(), &s_frame_info_);
-          if (flip_image_) {
-            CameraFlipFrameBuffer(image_msg_.data.data(), &s_frame_info_, 3);
-          }
-          camera_info_msg_.header.stamp = image_msg_.header.stamp = this->now();
           image_msg_.height = s_frame_info_.iHeight;
           image_msg_.width = s_frame_info_.iWidth;
           image_msg_.step = s_frame_info_.iWidth * 3;
           image_msg_.data.resize(s_frame_info_.iWidth * s_frame_info_.iHeight * 3);
+
+          CameraImageProcess(h_camera_, pby_buffer_, image_msg_.data.data(), &s_frame_info_);
+          if (flip_image_) {
+            CameraFlipFrameBuffer(image_msg_.data.data(), &s_frame_info_, 3);
+          }
+          if (image_rotation_ != 0) {
+            image_msg_.data = rotateRgbImage(
+              image_msg_.data, image_msg_.width, image_msg_.height, image_rotation_);
+            if (image_rotation_ == 90 || image_rotation_ == 270) {
+              std::swap(image_msg_.width, image_msg_.height);
+            }
+            image_msg_.step = image_msg_.width * 3;
+          }
+          camera_info_msg_.header.stamp = image_msg_.header.stamp = this->now();
 
           camera_pub_.publish(image_msg_, camera_info_msg_);
 
@@ -219,6 +274,16 @@ private:
 
     // Flip
     flip_image_ = this->declare_parameter("flip_image", false);
+
+    // Image rotation in degrees. Valid values: 0, 90, 180, 270
+    image_rotation_ = this->declare_parameter("image_rotation", 0);
+    if (!isValidRotation(image_rotation_)) {
+      RCLCPP_WARN(
+        this->get_logger(),
+        "Invalid image_rotation=%d, fallback to 0. Valid values: 0, 90, 180, 270",
+        image_rotation_);
+      image_rotation_ = 0;
+    }
   }
 
   rcl_interfaces::msg::SetParametersResult parametersCallback(
@@ -275,6 +340,14 @@ private:
         }
       } else if (param.get_name() == "flip_image") {
         flip_image_ = param.as_bool();
+      } else if (param.get_name() == "image_rotation") {
+        const int rotation = param.as_int();
+        if (!isValidRotation(rotation)) {
+          result.successful = false;
+          result.reason = "image_rotation must be one of [0, 90, 180, 270]";
+        } else {
+          image_rotation_ = rotation;
+        }
       } else {
         result.successful = false;
         result.reason = "Unknown parameter: " + param.get_name();
@@ -296,6 +369,7 @@ private:
   int r_gain_, g_gain_, b_gain_;
 
   bool flip_image_;
+  int image_rotation_ = 0;
 
   std::string camera_name_;
   std::unique_ptr<camera_info_manager::CameraInfoManager> camera_info_manager_;

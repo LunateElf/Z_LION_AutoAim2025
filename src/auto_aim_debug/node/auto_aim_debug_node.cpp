@@ -77,6 +77,11 @@ public:
         float recording_time = this->declare_parameter("recording_time", -1.0);
         debug_image_width = this->declare_parameter("image_width", 1440);
         debug_image_height = this->declare_parameter("image_height", 1080);
+        double detector_debug_downsample_ratio = this->declare_parameter("detector_debug_downsample_ratio", 4.0);
+        if (detector_debug_downsample_ratio < 1.0) {
+            detector_debug_downsample_ratio = 1.0;
+        }
+        this->detector_debug_downsample_ratio = detector_debug_downsample_ratio;
 		int fps = this->declare_parameter("fps", 30);
         bool avi = this->declare_parameter("avi", false);
 
@@ -113,14 +118,25 @@ private:
         cv::Mat src;
         try
         {
-            src = cv_bridge::toCvShare(imageSharedPtr, "bgr8")->image;
+            src = cv_bridge::toCvShare(imageSharedPtr, "bgr8")->image.clone();
         }
         catch (cv_bridge::Exception& e)
         {
             RCLCPP_ERROR(this->get_logger(), "cv_bridge exception: %s", e.what());
             return;
         };
-        cv::resize(src,src,cv::Size(debug_image_width,debug_image_height));
+
+        // DetectorNode publishes debug image downsampled by a fixed ratio, while overlay points
+        // remain in detector coordinate space. Upscale back first so overlays align and stay visible.
+        if (detector_debug_downsample_ratio > 1.0) {
+            cv::resize(
+                src,
+                src,
+                cv::Size(),
+                detector_debug_downsample_ratio,
+                detector_debug_downsample_ratio,
+                cv::INTER_LINEAR);
+        }
         if(origin_image_loader != NULL) origin_image_loader->load_in_video(src);
 
         if(!processor_msg.empty) // 
@@ -179,11 +195,18 @@ private:
 
             
         };
+
+        cv::Mat show_src = src;
+        if (debug_image_width > 0 && debug_image_height > 0 &&
+            (src.cols != debug_image_width || src.rows != debug_image_height)) {
+            cv::resize(src, show_src, cv::Size(debug_image_width, debug_image_height));
+        }
+
         if(show){
-            cv::imshow("DebugNode",src);
+            cv::imshow("DebugNode",show_src);
             cv::waitKey(1);
         };
-        if(show_image_loader != NULL) show_image_loader->load_in_video(src);
+        if(show_image_loader != NULL) show_image_loader->load_in_video(show_src);
         // 每次循环清空
         TextDrawer__->clear();
         if(show_time_cost)
@@ -231,6 +254,7 @@ private:
 private:
     int debug_image_width;
     int debug_image_height;
+    double detector_debug_downsample_ratio;
     bool show; // 是否显示图像
     bool show_time_cost;
     bool show_true_car;
