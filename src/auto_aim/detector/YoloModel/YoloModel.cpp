@@ -215,20 +215,23 @@ namespace rm
         std::copy(channels[0].begin<float>(), channels[0].end<float>(), input_data_host + image_area * 0);
         std::copy(channels[1].begin<float>(), channels[1].end<float>(), input_data_host + image_area * 1);
         std::copy(channels[2].begin<float>(), channels[2].end<float>(), input_data_host + image_area * 2);
-        if (cudaMemcpyAsync(device_buffers_[input_index_], input_data_host, input_buffer_size_,
-            cudaMemcpyHostToDevice, stream_) != cudaSuccess) {
-            throw std::runtime_error("cudaMemcpyAsync H2D failed");
+        cudaError_t cuda_err = cudaMemcpyAsync(device_buffers_[input_index_], input_data_host, input_buffer_size_,
+            cudaMemcpyHostToDevice, stream_);
+        if (cuda_err != cudaSuccess) {
+            throw std::runtime_error(std::string("cudaMemcpyAsync H2D failed: ") + cudaGetErrorString(cuda_err));
         }
         if (!context_->enqueueV2(device_buffers_, stream_, nullptr)) {
             throw std::runtime_error("TensorRT enqueueV2 failed");
         }
         std::vector<float> output_host(output_buffer_size_ / sizeof(float));
-        if (cudaMemcpyAsync(output_host.data(), device_buffers_[output_index_], output_buffer_size_,
-            cudaMemcpyDeviceToHost, stream_) != cudaSuccess) {
-            throw std::runtime_error("cudaMemcpyAsync D2H failed");
+        cuda_err = cudaMemcpyAsync(output_host.data(), device_buffers_[output_index_], output_buffer_size_,
+            cudaMemcpyDeviceToHost, stream_);
+        if (cuda_err != cudaSuccess) {
+            throw std::runtime_error(std::string("cudaMemcpyAsync D2H failed: ") + cudaGetErrorString(cuda_err));
         }
-        if (cudaStreamSynchronize(stream_) != cudaSuccess) {
-            throw std::runtime_error("cudaStreamSynchronize failed");
+        cuda_err = cudaStreamSynchronize(stream_);
+        if (cuda_err != cudaSuccess) {
+            throw std::runtime_error(std::string("cudaStreamSynchronize failed: ") + cudaGetErrorString(cuda_err));
         }
 
         float confidence_threshold = 0.25;
