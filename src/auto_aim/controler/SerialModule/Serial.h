@@ -3,12 +3,13 @@
 
 /****************************************/
 //
-// ´®¿ÚÍ¨Ñ¶Àà
+// ï¿½ï¿½ï¿½ï¿½Í¨Ñ¶ï¿½ï¿½
 //
 /****************************************/
 
 #include"SerialFuc.h"
 #include <thread>
+#include <string>
 #ifdef Linux
 #include <boost/asio.hpp>
 #include <termios.h>
@@ -103,51 +104,51 @@ namespace rm
 
 
 
-	// ·¢ËÍÀà
+	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	class SerialSend
 	{
 	public:
 		SerialSend(std::vector<SerialBase*> datas);
-		// Ïú»Ù
+		// ï¿½ï¿½ï¿½ï¿½
 		~SerialSend();
 		std::vector<uint8_t> send();
-		// ÑÓ³Ù·¢ËÍ,
+		// ï¿½Ó³Ù·ï¿½ï¿½ï¿½,
 		std::vector<uint8_t> send_delay(double delay);
 		void show();
 	private:
-		// Êý¾ÝÖ¸Õë
+		// ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½
 		std::vector<SerialBase*> datas;
-		// ·ÅÈëÊý¾Ý
+		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		void add_in_msg(std::vector<uint8_t>& msg, SerialBase* sb);
 		// Õ¹Ê¾
 		void show(const std::vector<uint8_t>& msg);
-		// ´«Êä
+		// ï¿½ï¿½ï¿½ï¿½
 		void serial_send(uint8_t* msg, int length);
 	private:
 		double get_now_time();
 	};
 
-	// ½ÓÊÕÀà
+	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	class SerialRead
 	{
 	public:
-		// ¶ÁÈ¡Êý¾Ý°ü,µ±Ç°½ÓÊÕÀà²»º¬ÓÐ³¤¶È,Ö»ÓÐÍ·Ö¡,Î²Ö¡ºÍCRC16Ð£Ñé
+		// ï¿½ï¿½È¡ï¿½ï¿½ï¿½Ý°ï¿½,ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½à²»ï¿½ï¿½ï¿½Ð³ï¿½ï¿½ï¿½,Ö»ï¿½ï¿½Í·Ö¡,Î²Ö¡ï¿½ï¿½CRC16Ð£ï¿½ï¿½
 		SerialRead(const std::vector<SerialBase*>& datas);
-		// Ïú»Ù
+		// ï¿½ï¿½ï¿½ï¿½
 		~SerialRead();
-		// ¼ì²é,³É¹¦¾Í·µ»Ø±äÁ¿,·ñÔò·µ»Ø¿Õ
+		// ï¿½ï¿½ï¿½,ï¿½É¹ï¿½ï¿½Í·ï¿½ï¿½Ø±ï¿½ï¿½ï¿½,ï¿½ï¿½ï¿½ò·µ»Ø¿ï¿½
 		bool check();
 		bool check(const std::vector<uint8_t>& data);
 	private:
-		// Êý¾ÝÖ¸Õë
+		// ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½
 		std::vector<SerialBase*> datas;
 		//// Õ¹Ê¾
 		//void show(const std::vector<uint8_t>& msg);
-		// ½ÓÊÕÊý¾Ý
+		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		std::vector<uint8_t> read_data(int data_size);
-		// Ð£ÑéÊý¾Ý
+		// Ð£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		bool check_in_msg(std::vector<uint8_t> msg, SerialBase* sb);
-		// Æô¶¯½ÓÊÕ
+		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		bool open_read();
 		int fd;
 		char buffer[1024];

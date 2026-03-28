@@ -95,7 +95,7 @@ namespace rm
     YoloModel::YoloModel(std::string model_path, int image_size)
         :image_size(image_size)
     {
-        model = core.compile_model(model_path, "CPU"); // Ĭ�ϲ���cpu����ģ��
+        model = core.compile_model(model_path, "AUTO"); // Ĭ�ϲ���cpu����ģ��
         iq = model.create_infer_request();
         input_tensor_ = iq.get_input_tensor(0);
     };
@@ -131,7 +131,7 @@ namespace rm
         // ת����ɫ�ռ�
         cv::cvtColor(src, src, cv::COLOR_BGR2RGB);
         src.convertTo(src, CV_32F, 1.0 / 255.0);
-        // ����ͨ�����������ݵ��������
+        // ����ͨ�����������ݵ��������?
         std::vector<cv::Mat> channels(3);
         cv::split(src, channels);
         float* input_data_host = input.data<float>();
@@ -151,7 +151,7 @@ namespace rm
         float* output_buffer = output.data<float>();
         int TOPK_NUM = output_numbox;
 
-        // ���ĵ�ģ�Ͳ��� 49: �ĵ�ֱ�������,����,����,����
+        // ���ĵ�ģ�Ͳ��� 49: �ĵ�ֱ�������?,����,����,����
         // x0 y0 x1 y1 confince ltx lty lbx lby rbx rby rtx rty ==> 0 - 12
         // 13 - 48 ����,�ܹ�36��
         std::vector<bbox_t> rst;

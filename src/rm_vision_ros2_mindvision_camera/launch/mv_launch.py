@@ -1,21 +1,30 @@
-import os
-
-from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, PythonExpression
 from launch_ros.actions import Node
+from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
-    params_file = os.path.join(
-        get_package_share_directory('mindvision_camera'), 'config', 'camera_params.yaml')
+    config_profile = LaunchConfiguration('profile')
 
     camera_info_url = 'package://mindvision_camera/config/camera_info.yaml'
 
     return LaunchDescription([
-        DeclareLaunchArgument(name='params_file',
-                              default_value=params_file),
+        DeclareLaunchArgument(
+            name='profile',
+            default_value='default',
+            description='YAML profile name from auto_aim_bringup config: default/hero/sentry/infantry'
+        ),
+        DeclareLaunchArgument(
+            name='params_file',
+            default_value=PathJoinSubstitution([
+                FindPackageShare('auto_aim_bringup'),
+                'config',
+                PythonExpression(["'", config_profile, "' + '.yaml'"])
+            ]),
+            description='Full path to parameter file; override to use custom yaml'
+        ),
         DeclareLaunchArgument(name='camera_info_url',
                               default_value=camera_info_url),
         DeclareLaunchArgument(name='use_sensor_data_qos',

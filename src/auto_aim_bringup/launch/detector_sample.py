@@ -1,24 +1,33 @@
 
 # 只启动相机与串口节点
 
-import os
-from ament_index_python.packages import get_package_share_directory, get_package_prefix
 from launch import LaunchDescription
 from launch_ros.actions import Node
 from launch.actions import DeclareLaunchArgument
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, PythonExpression
 from launch_ros.substitutions import FindPackageShare
 
 def generate_launch_description():
+    config_profile = LaunchConfiguration('profile')
+
     # 定义参数文件路径
     params_file = DeclareLaunchArgument(
         'params_file',
-        default_value=PathJoinSubstitution([FindPackageShare('auto_aim_bringup'), 'config', 'default.yaml']),
+        default_value=PathJoinSubstitution([
+            FindPackageShare('auto_aim_bringup'),
+            'config',
+            PythonExpression(["'", config_profile, "' + '.yaml'"])
+        ]),
         description='Full path to the parameter file for send_trans_processor_node'
     )
 
 
     return LaunchDescription([
+        DeclareLaunchArgument(
+            name='profile',
+            default_value='default',
+            description='YAML profile name: default/hero/sentry/infantry'
+        ),
         params_file,
         DeclareLaunchArgument(name='use_sensor_data_qos',
                               default_value='false'),

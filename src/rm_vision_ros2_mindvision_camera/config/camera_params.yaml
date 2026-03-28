@@ -3,5 +3,5 @@
     camera_name: mv_camera
 
     exposure_time: 6000
-    analog_gain: 32
-    image_rotation: 0
+    analog_gain: 24
+    image_rotation: 270     # 图像旋转角度，仅支持 0/90/180/270

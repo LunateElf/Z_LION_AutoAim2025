@@ -16,10 +16,10 @@ namespace rm
 	{
 		std::vector<uint8_t> msg;
 		int size = datas.size();
-		int length_id = -1; // ³¤¶ÈÎ»
-		int start_length_id = -1; // ÆðÊ¼Î»
-		int end_length_id = -1; // ½áÊøÎ»
-		std::vector<std::pair<int, int>> crcs; // crcµÄdatasÏÂ±êºÍmsgÏÂ±ê
+		int length_id = -1; // ï¿½ï¿½ï¿½ï¿½Î»
+		int start_length_id = -1; // ï¿½ï¿½Ê¼Î»
+		int end_length_id = -1; // ï¿½ï¿½ï¿½ï¿½Î»
+		std::vector<std::pair<int, int>> crcs; // crcï¿½ï¿½datasï¿½Â±ï¿½ï¿½msgï¿½Â±ï¿½
 		for (int i = 0; i < size; i++) {
 			switch (datas[i]->operator_)
 			{
@@ -63,13 +63,13 @@ namespace rm
 			};
 		};
 
-		// Èç¹û³¤¶ÈÎ»·Ç-1,Ôò¼ÆËã³¤¶È
+		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î»ï¿½ï¿½-1,ï¿½ï¿½ï¿½ï¿½ã³¤ï¿½ï¿½
 		if (length_id != -1 && start_length_id != -1 && end_length_id != -1)
 		{
 			msg[length_id] = end_length_id - start_length_id + 1;
 		};
 
-		// ×îºó´¦ÀíCRCÐ£Ñé
+		// ï¿½ï¿½ï¿½ï¿½ï¿½CRCÐ£ï¿½ï¿½
 		for (const auto& crc : crcs) {
 			if (datas[crc.first]->operator_ == 4) { // CRC8
 				msg[crc.second] = getCRC8(msg.data(), crc.second);
@@ -98,10 +98,10 @@ namespace rm
 	{
 		std::vector<uint8_t> msg;
 		int size = datas.size();
-		int length_id = -1; // ³¤¶ÈÎ»
-		int start_length_id = -1; // ÆðÊ¼Î»
-		int end_length_id = -1; // ½áÊøÎ»
-		std::vector<std::pair<int, int>> crcs; // crcµÄdatasÏÂ±êºÍmsgÏÂ±ê
+		int length_id = -1; // ï¿½ï¿½ï¿½ï¿½Î»
+		int start_length_id = -1; // ï¿½ï¿½Ê¼Î»
+		int end_length_id = -1; // ï¿½ï¿½ï¿½ï¿½Î»
+		std::vector<std::pair<int, int>> crcs; // crcï¿½ï¿½datasï¿½Â±ï¿½ï¿½msgï¿½Â±ï¿½
 		for (int i = 0; i < size; i++) {
 			switch (datas[i]->operator_)
 			{
@@ -145,13 +145,13 @@ namespace rm
 			};
 		};
 
-		// Èç¹û³¤¶ÈÎ»·Ç-1,Ôò¼ÆËã³¤¶È
+		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î»ï¿½ï¿½-1,ï¿½ï¿½ï¿½ï¿½ã³¤ï¿½ï¿½
 		if (length_id != -1 && start_length_id != -1 && end_length_id != -1)
 		{
 			msg[length_id] = end_length_id - start_length_id + 1;
 		};
 
-		// ×îºó´¦ÀíCRCÐ£Ñé
+		// ï¿½ï¿½ï¿½ï¿½ï¿½CRCÐ£ï¿½ï¿½
 		for (const auto& crc : crcs) {
 			if (datas[crc.first]->operator_ == 4) { // CRC8
 				msg[crc.second] = getCRC8(msg.data(), crc.second);
@@ -184,16 +184,20 @@ namespace rm
 	{
 #ifdef Linux
 		try {
-			const char* serialPort1 = "/dev/ttyUSB0";
-			int fd = open(serialPort1, O_RDWR | O_NOCTTY | O_NDELAY);
-			if (fd == -1) {
-				const char* serialPort2 = "/dev/ttyUSB1";
-				fd = open(serialPort2, O_RDWR | O_NOCTTY | O_NDELAY);
-				if (fd == -1) {
-					std::cout << "can not use device /dev/ttyUSB 0&1 !!!" << std::endl;
-					return;
-				}
+			// åŠ¨æ€æ‰«æ /dev/ttyACM* è®¾å¤‡
+		int fd = -1;
+		for (int i = 0; i < 10; i++) {
+			std::string port = "/dev/ttyACM" + std::to_string(i);
+			fd = open(port.c_str(), O_RDWR | O_NOCTTY | O_NDELAY);
+			if (fd != -1) {
+				std::cout << "Open serial on " << port << " !!!" << std::endl;
+				break;
 			}
+		}
+		if (fd == -1) {
+			std::cout << "can not use any /dev/ttyACM* device !!!" << std::endl;
+			return;
+		}
 			struct termios serialParams;
 			tcgetattr(fd, &serialParams);
 			cfsetispeed(&serialParams, B115200);
@@ -228,7 +232,7 @@ namespace rm
 	SerialRead::SerialRead(const std::vector<SerialBase*>& datas)
 		:datas(datas)
 	{
-		// Èç¹û´æÔÚ³¤¶ÈÊý¾Ý,»ñÈ¡³¤¶ÈÖµ
+		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½,ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½Öµ
 		int size = 0;
 		for (auto& x : datas)
 		{
@@ -247,7 +251,7 @@ namespace rm
 		if (!open_read()) return false;
 		std::vector<uint8_t> data = read_data(this->data_size);
 		if (data.size() != this->data_size) return false;
-		// Ò»Ò»Ð£Ñé
+		// Ò»Ò»Ð£ï¿½ï¿½
 		size_t t__ = 0;
 		for (auto& x : datas)
 		{
@@ -270,7 +274,7 @@ namespace rm
 	bool SerialRead::check(const std::vector<uint8_t>& data)
 	{
 		if (data.size() != this->data_size) return false;
-		// Ò»Ò»Ð£Ñé
+		// Ò»Ò»Ð£ï¿½ï¿½
 		size_t t__ = 0;
 		for (auto& x : datas)
 		{
@@ -286,7 +290,7 @@ namespace rm
 
 			if (!check_in_msg(check_data, x)) return false;
 			if (x->variable) {
-				// x->_read_set_data_ = std::vector<uint8_t>(check_data.size()); // È·±£ vec2 ÓÐ×ã¹»µÄ¿Õ¼ä
+				// x->_read_set_data_ = std::vector<uint8_t>(check_data.size()); // È·ï¿½ï¿½ vec2 ï¿½ï¿½ï¿½ã¹»ï¿½Ä¿Õ¼ï¿½
 
 				//for (size_t i = 0; i < check_data.size(); ++i) {
 				//	x->_read_set_data_[i] = check_data[check_data.size() - 1 - i];
@@ -318,12 +322,12 @@ namespace rm
 	bool SerialRead::check_in_msg(std::vector<uint8_t> msg, SerialBase* sb)
 	{
 
-		// msgÖ±½Ó¶ÔÓ¦ÐèÒªµÄÎ»Êý
-		if (sb->variable) return true; // ±äÁ¿,ÎÞÐèÐ£Ñé
+		// msgÖ±ï¿½Ó¶ï¿½Ó¦ï¿½ï¿½Òªï¿½ï¿½Î»ï¿½ï¿½
+		if (sb->variable) return true; // ï¿½ï¿½ï¿½ï¿½,ï¿½ï¿½ï¿½ï¿½Ð£ï¿½ï¿½
 		else if (
 			sb->operator_ == 0 || sb->operator_ == 1 ||
 			sb->operator_ == 2 || sb->operator_ == 3
-			) { // Ö±½ÓÐ£Ñé
+			) { // Ö±ï¿½ï¿½Ð£ï¿½ï¿½
 			return sb->process()[0] == msg[0];
 		}
 		else if (sb->operator_ == 4) {
@@ -346,29 +350,32 @@ namespace rm
 	};
 
 	bool SerialRead::open_read()
-	{
+{
 #ifdef Linux
-		// ËÀÑ­»·
-		int fd1 = open("/dev/ttyUSB0", O_RDWR | O_NOCTTY);
-		int fd2 = open("/dev/ttyUSB1", O_RDWR | O_NOCTTY);
-		if (fd1 == -1 && fd2 == -1) {
-			std::cerr << "ÎÞ·¨´ò¿ª´®¿Ú" << std::endl;
-		}
-		else {
-			fd = fd1 == -1 ? fd2 : fd1;
-			std::cout << "==== ´®¿ÚÆô¶¯³É¹¦!!! ====" << std::endl;
-			return false;
-		};
-		struct termios config;
-		tcgetattr(fd, &config);
-		config.c_cflag = B115200 | CS8 | CLOCAL | CREAD;
-		config.c_iflag = IGNPAR;
-		config.c_oflag = 0;
-		config.c_lflag = 0;
-		tcflush(fd, TCIFLUSH);
-		tcsetattr(fd, TCSANOW, &config);
-		return true;
+// åŠ¨æ€æ‰«æ /dev/ttyACM* è®¾å¤‡
+fd = -1;
+for (int i = 0; i < 10; i++) {
+std::string port = "/dev/ttyACM" + std::to_string(i);
+fd = open(port.c_str(), O_RDWR | O_NOCTTY);
+if (fd != -1) {
+std::cout << "Open serial on " << port << " !!!" << std::endl;
+break;
+}
+}
+if (fd == -1) {
+std::cerr << "Cannot open any /dev/ttyACM* device" << std::endl;
+return false;
+}
+struct termios config;
+tcgetattr(fd, &config);
+config.c_cflag = B115200 | CS8 | CLOCAL | CREAD;
+config.c_iflag = IGNPAR;
+config.c_oflag = 0;
+config.c_lflag = 0;
+tcflush(fd, TCIFLUSH);
+tcsetattr(fd, TCSANOW, &config);
+return true;
 #endif // Linux
-	};
+};
 
 }

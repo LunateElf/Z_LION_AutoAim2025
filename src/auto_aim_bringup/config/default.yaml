@@ -10,7 +10,7 @@
     camera_name: mv_camera
     exposure_time: 6000  # 相机曝光时间
     analog_gain: 32 # 增益
-    image_rotation: 0 # 图像旋转角度，仅支持 0/90/180/270 （适配英雄反着装的相机）
+    image_rotation: 270 # 图像旋转角度，仅支持 0/90/180/270
 
 /auto_aim_detector_node: # 识别节点
   ros__parameters:
@@ -46,11 +46,11 @@
       #                 0.     ,    0.     ,    1.     ]  # intrinsic of hik camera
       intrinsic:  [1329.11502,    0.     ,  649.51151,
                       0.     , 1328.3022 ,  463.33489,
-                      0.     ,    0.     ,    1.     ] #intrinsic of mv camera
+                      0.     ,    0.     ,    1.     ] #intrinsic of mv camera (unused mv cam)
       
       # distcoeffs: [-0.08590936981698154, 1.171532639048541, -0.001884908679011257, -0.0031928983215215, -5.942126178608666]  # 相机外参
       # distcoeffs: [-0.061714, 0.056389, -0.000796, -0.000933, 0.000000]  # distcoeffs of hik camera
-      distcoeffs: [-0.086638, 0.216226, 0.001555, 0.001249, 0.000000] # distcoeffs of mv camera
+      distcoeffs: [-0.086638, 0.216226, 0.001555, 0.001249, 0.000000] # distcoeffs of mv camera (unused mv cam)
 
       shaft_differ_x: 0.0 # 绝对坐标系x方向偏移量
       shaft_differ_y: -4.59 # 绝对坐标系y方向偏移量
@@ -59,8 +59,8 @@
       sot_shaft_differ_x: 0.0 # 转到射击坐标系偏移x
       sot_shaft_differ_y: -4.66 # 转到射击坐标系偏移y
       sot_shaft_differ_z: 12.371 # 转到射击坐标系偏移z
-      sot_shifting_yaw: -1.35 # 转到射击坐标系偏移yaw
-      sot_shifting_pitch: 0.4 # 转到射击坐标系偏移pitch
+      sot_shifting_yaw: -9.0 # 转到射击坐标系偏移yaw
+      sot_shifting_pitch: 0.0 # 转到射击坐标系偏移pitch
       
     DiagonalAngleSolver:
       inclined: 0.392 # 倾斜性权重

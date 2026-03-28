@@ -20,6 +20,7 @@
 #include <sys/stat.h>
 #include <mutex>
 #include <queue>
+#include <algorithm>
 using namespace rm;
 
 class SerialReadNode : public rclcpp::Node {
@@ -52,27 +53,19 @@ public:
         SerialRead__ = std::make_unique<SerialRead>(serial_datas);
         publisher_ = this->create_publisher<auto_aim_interfaces::msg::SerialReadData>("serial_read_data_topic", 10);
 
+        // Use timer polling so rclcpp::spin() can process Ctrl+C promptly.
+        read_timer_ = this->create_wall_timer(
+            std::chrono::milliseconds(2),
+            std::bind(&SerialReadNode::read_once, this));
+
         RCLCPP_INFO(this->get_logger(), "SerialReadNode is all right!!!");
     };
-public:
-    void read_data(){
-        // 启动串口
-        open_serial();
-        // 主程序
-        while(rclcpp::ok())
-        {
-            // 读取数据
-            int bytes_read = read(fd, buffer, sizeof(buffer));
-            std::vector<uint8_t> data(bytes_read);
-            for(int i = 0;i < bytes_read; i++){
-                int data_int = int(buffer[i]);
-                if (data_int < 0)data_int = 256 + data_int;
-                data[i] = static_cast<uint8_t>(data_int);
-            };
-            // 检查并推送
-            this->check_publish(data);
-        };
-    };
+    ~SerialReadNode() {
+        if (fd != -1) {
+            close(fd);
+            fd = -1;
+        }
+    }
 private:
     bool debug;
     bool negation_read_yaw;
@@ -84,29 +77,113 @@ private:
     Uint_8* grade;
 private: // 缓冲区信息和地址
     char buffer[1024];
-    int fd;
+    int fd = -1;
+    std::vector<uint8_t> rx_buffer_;
+    size_t fail_count_ = 0;
+    std::chrono::steady_clock::time_point next_reopen_time_ = std::chrono::steady_clock::now();
 private:
+    void read_once()
+    {
+        if (fd == -1) {
+            if (std::chrono::steady_clock::now() >= next_reopen_time_) {
+                open_serial();
+                if (fd == -1) {
+                    next_reopen_time_ = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+                }
+            }
+            return;
+        }
+
+        int bytes_read = read(fd, buffer, sizeof(buffer));
+
+        if (bytes_read < 0) {
+            if (errno != EAGAIN && errno != EWOULDBLOCK) {
+                RCLCPP_ERROR(this->get_logger(), "Serial read error(errno=%d). Reconnecting...", errno);
+                close(fd);
+                fd = -1;
+                next_reopen_time_ = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+            }
+            return;
+        }
+
+        if (bytes_read == 0) {
+            return;
+        }
+
+        for (int i = 0; i < bytes_read; i++) {
+            int data_int = int(buffer[i]);
+            if (data_int < 0) data_int = 256 + data_int;
+            rx_buffer_.push_back(static_cast<uint8_t>(data_int));
+        }
+
+        parse_frames();
+    }
+
+    void parse_frames()
+    {
+        constexpr size_t FRAME_SIZE = 13; // AA + color + yaw + pitch + grade + CRC16
+
+        while (rx_buffer_.size() >= FRAME_SIZE) {
+            auto it = std::find(rx_buffer_.begin(), rx_buffer_.end(), static_cast<uint8_t>(0xAA));
+            if (it == rx_buffer_.end()) {
+                rx_buffer_.clear();
+                return;
+            }
+
+            if (it != rx_buffer_.begin()) {
+                rx_buffer_.erase(rx_buffer_.begin(), it);
+            }
+
+            if (rx_buffer_.size() < FRAME_SIZE) {
+                return;
+            }
+
+            std::vector<uint8_t> frame(rx_buffer_.begin(), rx_buffer_.begin() + FRAME_SIZE);
+            if (check_publish(frame)) {
+                rx_buffer_.erase(rx_buffer_.begin(), rx_buffer_.begin() + FRAME_SIZE);
+                // Compatible with sender that appends trailing 0xA5 after CRC16.
+                if (!rx_buffer_.empty() && rx_buffer_.front() == 0xA5) {
+                    rx_buffer_.erase(rx_buffer_.begin());
+                }
+                continue;
+            }
+
+            rx_buffer_.erase(rx_buffer_.begin());
+        }
+    }
+
     void open_serial()
     {
-        int fd1 = open("/dev/ttyUSB0", O_RDWR | O_NOCTTY);
-        int fd2 = open("/dev/ttyUSB1", O_RDWR | O_NOCTTY);
-        if (fd1 == -1 && fd2 == -1) {
-            RCLCPP_ERROR(this->get_logger(),"Can't open serial");
-            exit(0);
+        fd = -1;
+        // 动态扫描 /dev/ttyACM* 设备
+        for (int i = 0; i < 10; i++) {
+            std::string port = "/dev/ttyACM" + std::to_string(i);
+            fd = open(port.c_str(), O_RDWR | O_NOCTTY);
+            if (fd != -1) {
+                RCLCPP_INFO(this->get_logger(), "Open serial on %s!!!", port.c_str());
+                break;
+            }
         }
-        else{
-            fd = fd1 == -1 ? fd2 : fd1;
-            RCLCPP_INFO(this->get_logger(),"Open serial!!!");
-        };
+        
+        if (fd == -1) {
+            RCLCPP_ERROR(this->get_logger(), "Can't open any /dev/ttyACM* device");
+            return; // 不再 exit(0)，让外层循环继续重试
+        }
+        
         struct termios config;
         tcgetattr(fd, &config);
         config.c_cflag = B115200 | CS8 | CLOCAL | CREAD;
         config.c_iflag = IGNPAR;
         config.c_oflag = 0;
         config.c_lflag = 0;
+        
+        // 设置非阻塞读取或设定超时，避免死锁没法Ctrl+C
+        config.c_cc[VMIN] = 0;
+        config.c_cc[VTIME] = 1; // 0.1秒超时
+        
         tcflush(fd, TCIFLUSH);
         tcsetattr(fd, TCSANOW, &config);
-    };
+    }
 
     bool check_publish(const std::vector<uint8_t>& data) {
 
@@ -130,25 +207,26 @@ private:
                     message.grade
                 ); // 这里仅作为示例打印第一个元素
             };
+            return true;
         }
         else{
             if(debug){
-                RCLCPP_ERROR(this->get_logger(),"data is fail!!!");
-                RCLCPP_INFO(this->get_logger(),"data size: %d",data.size());
-                for(int i = 0,I = data.size();i < I;i++){
-                    RCLCPP_INFO(this->get_logger(),"%d: %d",i, (int)data[i]);
-                };
+                fail_count_++;
+                if (fail_count_ % 200 == 1) {
+                    RCLCPP_ERROR(this->get_logger(),"data is fail (count=%zu, size=%zu)", fail_count_, data.size());
+                }
             };
+            return false;
         }
     }
     rclcpp::Publisher<auto_aim_interfaces::msg::SerialReadData>::SharedPtr publisher_;
+    rclcpp::TimerBase::SharedPtr read_timer_;
     std::unique_ptr<SerialRead> SerialRead__;
 };
 
 int main(int argc, char * argv[]) {
     rclcpp::init(argc, argv);
     auto node = std::make_shared<SerialReadNode>();
-    node->read_data();
     rclcpp::spin(node);
     rclcpp::shutdown();
     return 0;

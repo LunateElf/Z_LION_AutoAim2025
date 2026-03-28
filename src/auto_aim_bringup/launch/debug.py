@@ -9,10 +9,16 @@ from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, Envi
 from launch_ros.substitutions import FindPackageShare
 
 def generate_launch_description():
+    config_profile = LaunchConfiguration('profile')
+
     # 定义参数文件路径
     params_file = DeclareLaunchArgument(
         'params_file',
-        default_value=PathJoinSubstitution([FindPackageShare('auto_aim_bringup'), 'config', 'default.yaml']),
+        default_value=PathJoinSubstitution([
+            FindPackageShare('auto_aim_bringup'),
+            'config',
+            PythonExpression(["'", config_profile, "' + '.yaml'"])
+        ]),
         description='Full path to the parameter file for send_trans_processor_node'
     )
 
@@ -25,6 +31,11 @@ def generate_launch_description():
                 '/opt/intel/openvino_2024.6.0/runtime/lib/aarch64:',
                 EnvironmentVariable('LD_LIBRARY_PATH', default_value='')
             ]
+        ),
+        DeclareLaunchArgument(
+            name='profile',
+            default_value='default',
+            description='YAML profile name: default/hero/sentry/infantry'
         ),
         params_file,
         DeclareLaunchArgument(
@@ -69,13 +80,13 @@ def generate_launch_description():
             }],
         ),
 
-        # Node(
-        #     package='auto_aim',
-        #     executable='serial_read_data_node',
-        #     name='serial_read_data_node',
-        #     parameters=[LaunchConfiguration('params_file')],
-        #     output='screen',
-        # ),
+        Node(
+            package='auto_aim',
+            executable='serial_read_data_node',
+            name='serial_read_data_node',
+            parameters=[LaunchConfiguration('params_file')],
+            output='screen',
+        ),
         
         Node(
             package='auto_aim',
