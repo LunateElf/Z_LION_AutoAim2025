@@ -111,7 +111,11 @@ namespace rm
         }
         std::unique_ptr<nvinfer1::IBuilderConfig, TrtDeleter<nvinfer1::IBuilderConfig>> config(builder->createBuilderConfig());
         if (!config) throw std::runtime_error("TensorRT createBuilderConfig failed");
+#if NV_TENSORRT_MAJOR >= 8
+        config->setMemoryPoolLimit(nvinfer1::MemoryPoolType::kWORKSPACE, 1ULL << 30);
+#else
         config->setMaxWorkspaceSize(1ULL << 30);
+#endif
         if (builder->platformHasFastFp16()) config->setFlag(nvinfer1::BuilderFlag::kFP16);
         std::unique_ptr<nvinfer1::IHostMemory, TrtDeleter<nvinfer1::IHostMemory>> serialized(
             builder->buildSerializedNetwork(*network, *config));
@@ -154,9 +158,24 @@ namespace rm
 
     YoloModel::~YoloModel()
     {
-        if (device_buffers_[0] != nullptr) cudaFree(device_buffers_[0]);
-        if (device_buffers_[1] != nullptr) cudaFree(device_buffers_[1]);
-        if (stream_ != nullptr) cudaStreamDestroy(stream_);
+        if (device_buffers_[0] != nullptr) {
+            cudaError_t err = cudaFree(device_buffers_[0]);
+            if (err != cudaSuccess) {
+                std::cerr << "cudaFree buffer0 failed: " << cudaGetErrorString(err) << std::endl;
+            }
+        }
+        if (device_buffers_[1] != nullptr) {
+            cudaError_t err = cudaFree(device_buffers_[1]);
+            if (err != cudaSuccess) {
+                std::cerr << "cudaFree buffer1 failed: " << cudaGetErrorString(err) << std::endl;
+            }
+        }
+        if (stream_ != nullptr) {
+            cudaError_t err = cudaStreamDestroy(stream_);
+            if (err != cudaSuccess) {
+                std::cerr << "cudaStreamDestroy failed: " << cudaGetErrorString(err) << std::endl;
+            }
+        }
     }
 
     void YoloModel::set_enemy_color(bool enemy_blue)
@@ -196,15 +215,21 @@ namespace rm
         std::copy(channels[0].begin<float>(), channels[0].end<float>(), input_data_host + image_area * 0);
         std::copy(channels[1].begin<float>(), channels[1].end<float>(), input_data_host + image_area * 1);
         std::copy(channels[2].begin<float>(), channels[2].end<float>(), input_data_host + image_area * 2);
-        cudaMemcpyAsync(device_buffers_[input_index_], input_data_host, input_buffer_size_,
-            cudaMemcpyHostToDevice, stream_);
+        if (cudaMemcpyAsync(device_buffers_[input_index_], input_data_host, input_buffer_size_,
+            cudaMemcpyHostToDevice, stream_) != cudaSuccess) {
+            throw std::runtime_error("cudaMemcpyAsync H2D failed");
+        }
         if (!context_->enqueueV2(device_buffers_, stream_, nullptr)) {
             throw std::runtime_error("TensorRT enqueueV2 failed");
         }
         std::vector<float> output_host(output_buffer_size_ / sizeof(float));
-        cudaMemcpyAsync(output_host.data(), device_buffers_[output_index_], output_buffer_size_,
-            cudaMemcpyDeviceToHost, stream_);
-        cudaStreamSynchronize(stream_);
+        if (cudaMemcpyAsync(output_host.data(), device_buffers_[output_index_], output_buffer_size_,
+            cudaMemcpyDeviceToHost, stream_) != cudaSuccess) {
+            throw std::runtime_error("cudaMemcpyAsync D2H failed");
+        }
+        if (cudaStreamSynchronize(stream_) != cudaSuccess) {
+            throw std::runtime_error("cudaStreamSynchronize failed");
+        }
 
         float confidence_threshold = 0.25;
 
