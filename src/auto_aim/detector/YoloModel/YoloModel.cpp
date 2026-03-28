@@ -1,4 +1,6 @@
 #include"YoloModel.h"
+#include <numeric>
+#include <stdexcept>
 
 namespace rm
 {
@@ -95,10 +97,67 @@ namespace rm
     YoloModel::YoloModel(std::string model_path, int image_size)
         :image_size(image_size)
     {
-        model = core.compile_model(model_path, "CPU"); // Ä¬ÈÏ²ÉÓÃcpu¼ÓÔØÄ£ÐÍ
-        iq = model.create_infer_request();
-        input_tensor_ = iq.get_input_tensor(0);
+        const auto explicit_batch = 1U << static_cast<uint32_t>(nvinfer1::NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
+        std::unique_ptr<nvinfer1::IBuilder, TrtDeleter<nvinfer1::IBuilder>> builder(nvinfer1::createInferBuilder(logger_));
+        if (!builder) throw std::runtime_error("TensorRT createInferBuilder failed");
+        std::unique_ptr<nvinfer1::INetworkDefinition, TrtDeleter<nvinfer1::INetworkDefinition>> network(
+            builder->createNetworkV2(explicit_batch));
+        if (!network) throw std::runtime_error("TensorRT createNetworkV2 failed");
+        std::unique_ptr<nvonnxparser::IParser, TrtDeleter<nvonnxparser::IParser>> parser(
+            nvonnxparser::createParser(*network, logger_));
+        if (!parser) throw std::runtime_error("TensorRT createParser failed");
+        if (!parser->parseFromFile(model_path.c_str(), static_cast<int>(nvinfer1::ILogger::Severity::kWARNING))) {
+            throw std::runtime_error("TensorRT parse ONNX failed: " + model_path);
+        }
+        std::unique_ptr<nvinfer1::IBuilderConfig, TrtDeleter<nvinfer1::IBuilderConfig>> config(builder->createBuilderConfig());
+        if (!config) throw std::runtime_error("TensorRT createBuilderConfig failed");
+        config->setMaxWorkspaceSize(1ULL << 30);
+        if (builder->platformHasFastFp16()) config->setFlag(nvinfer1::BuilderFlag::kFP16);
+        std::unique_ptr<nvinfer1::IHostMemory, TrtDeleter<nvinfer1::IHostMemory>> serialized(
+            builder->buildSerializedNetwork(*network, *config));
+        if (!serialized) throw std::runtime_error("TensorRT buildSerializedNetwork failed");
+        runtime_.reset(nvinfer1::createInferRuntime(logger_));
+        if (!runtime_) throw std::runtime_error("TensorRT createInferRuntime failed");
+        engine_.reset(runtime_->deserializeCudaEngine(serialized->data(), serialized->size()));
+        if (!engine_) throw std::runtime_error("TensorRT deserializeCudaEngine failed");
+        context_.reset(engine_->createExecutionContext());
+        if (!context_) throw std::runtime_error("TensorRT createExecutionContext failed");
+        if (engine_->getNbBindings() != 2) throw std::runtime_error("TensorRT expects exactly 2 bindings");
+        for (int i = 0; i < engine_->getNbBindings(); i++) {
+            if (engine_->bindingIsInput(i)) input_index_ = i;
+            else output_index_ = i;
+        }
+        if (input_index_ < 0 || output_index_ < 0) throw std::runtime_error("TensorRT binding index error");
+
+        auto input_dims = context_->getBindingDimensions(input_index_);
+        if (input_dims.nbDims == 4 &&
+            (input_dims.d[0] == -1 || input_dims.d[2] == -1 || input_dims.d[3] == -1)) {
+            context_->setBindingDimensions(input_index_, nvinfer1::Dims4(1, 3, image_size, image_size));
+        }
+        if (!context_->allInputDimensionsSpecified()) {
+            throw std::runtime_error("TensorRT input dimensions not specified");
+        }
+
+        auto calc_size = [](const nvinfer1::Dims& dims) {
+            size_t vol = 1;
+            for (int i = 0; i < dims.nbDims; i++) vol *= static_cast<size_t>(dims.d[i]);
+            return vol * sizeof(float);
+            };
+        input_buffer_size_ = calc_size(context_->getBindingDimensions(input_index_));
+        output_buffer_size_ = calc_size(context_->getBindingDimensions(output_index_));
+        if (cudaStreamCreate(&stream_) != cudaSuccess) throw std::runtime_error("cudaStreamCreate failed");
+        if (cudaMalloc(&device_buffers_[input_index_], input_buffer_size_) != cudaSuccess)
+            throw std::runtime_error("cudaMalloc input failed");
+        if (cudaMalloc(&device_buffers_[output_index_], output_buffer_size_) != cudaSuccess)
+            throw std::runtime_error("cudaMalloc output failed");
     };
+
+    YoloModel::~YoloModel()
+    {
+        if (device_buffers_[0] != nullptr) cudaFree(device_buffers_[0]);
+        if (device_buffers_[1] != nullptr) cudaFree(device_buffers_[1]);
+        if (stream_ != nullptr) cudaStreamDestroy(stream_);
+    }
 
     void YoloModel::set_enemy_color(bool enemy_blue)
     {
@@ -107,9 +166,9 @@ namespace rm
 
     std::vector<Armor> YoloModel::find_armors(cv::Mat src)
     {
-        // Éñ¾­ÍøÂçÍÆÀí
+        // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         std::vector<bbox_t> bbox_ts = forward(src);
-        // ÌÞ³ý±ßÔµÄ¿±ê
+        // ï¿½Þ³ï¿½ï¿½ï¿½ÔµÄ¿ï¿½ï¿½
         bbox_ts = screen_out_edge_targets(bbox_ts, src.cols, src.rows);
         std::vector<Armor> out_armors;
         for (const auto& x : bbox_ts) {
@@ -121,58 +180,67 @@ namespace rm
 
     std::vector<YoloModel::bbox_t> YoloModel::forward(cv::Mat src)
     {
-        // Éè¶¨
+        // ï¿½è¶¨
         double image_width = src.cols;
         double image_height = src.rows;
         src = letterbox(src, image_size, image_size, padd_w_, padd_h_);
-        // double start = get_now_time();
-        auto input = iq.get_input_tensor(0);
-        input.set_shape({ 1,3,static_cast<unsigned long long>(src.cols),static_cast<unsigned long long>(src.rows) });
-        // ×ª»»ÑÕÉ«¿Õ¼ä
+        // ×ªï¿½ï¿½ï¿½ï¿½É«ï¿½Õ¼ï¿½
         cv::cvtColor(src, src, cv::COLOR_BGR2RGB);
         src.convertTo(src, CV_32F, 1.0 / 255.0);
-        // ·ÖÀëÍ¨µÀ²¢¸´ÖÆÊý¾Ýµ½Êä³öÏòÁ¿
+        // ï¿½ï¿½ï¿½ï¿½Í¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ýµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         std::vector<cv::Mat> channels(3);
         cv::split(src, channels);
-        float* input_data_host = input.data<float>();
+        std::vector<float> input_host(input_buffer_size_ / sizeof(float));
+        float* input_data_host = input_host.data();
         int image_area = src.rows * src.cols;
         std::copy(channels[0].begin<float>(), channels[0].end<float>(), input_data_host + image_area * 0);
         std::copy(channels[1].begin<float>(), channels[1].end<float>(), input_data_host + image_area * 1);
         std::copy(channels[2].begin<float>(), channels[2].end<float>(), input_data_host + image_area * 2);
-        iq.infer(); // ÍÆÀí¹ý³Ì£¬Õâ¿ÉÄÜÊÇ×îºÄÊ±µÄ²¿·Ö
-        auto output = iq.get_output_tensor(0);
+        cudaMemcpyAsync(device_buffers_[input_index_], input_data_host, input_buffer_size_,
+            cudaMemcpyHostToDevice, stream_);
+        if (!context_->enqueueV2(device_buffers_, stream_, nullptr)) {
+            throw std::runtime_error("TensorRT enqueueV2 failed");
+        }
+        std::vector<float> output_host(output_buffer_size_ / sizeof(float));
+        cudaMemcpyAsync(output_host.data(), device_buffers_[output_index_], output_buffer_size_,
+            cudaMemcpyDeviceToHost, stream_);
+        cudaStreamSynchronize(stream_);
 
         float confidence_threshold = 0.25;
 
-        int output_numbox = output.get_shape()[1]; // TOPK_NUM = 25200
-        int output_numprob = output.get_shape()[2]; // 49
+        auto output_dims = context_->getBindingDimensions(output_index_);
+        if (output_dims.nbDims != 3) {
+            throw std::runtime_error("Unexpected TensorRT output dims");
+        }
+        int output_numbox = output_dims.d[1];
+        int output_numprob = output_dims.d[2];
         int modle_last_length = 13;
         int num_classes = output_numprob - modle_last_length; // 36
-        float* output_buffer = output.data<float>();
+        float* output_buffer = output_host.data();
         int TOPK_NUM = output_numbox;
 
-        // ¸ÃËÄµãÄ£ÐÍ²ÉÓÃ 49: ËÄµã·Ö±ðÊÇ×óÉÏ,×óÏÂ,ÓÒÏÂ,ÓÒÉÏ
+        // ï¿½ï¿½ï¿½Äµï¿½Ä£ï¿½Í²ï¿½ï¿½ï¿½ 49: ï¿½Äµï¿½Ö±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½,ï¿½ï¿½ï¿½ï¿½,ï¿½ï¿½ï¿½ï¿½,ï¿½ï¿½ï¿½ï¿½
         // x0 y0 x1 y1 confince ltx lty lbx lby rbx rby rtx rty ==> 0 - 12
-        // 13 - 48 ·ÖÀà,×Ü¹²36ÖÖ
+        // 13 - 48 ï¿½ï¿½ï¿½ï¿½,ï¿½Ü¹ï¿½36ï¿½ï¿½
         std::vector<bbox_t> rst;
         rst.reserve(TOPK_NUM);
         std::vector<uint8_t> removed(TOPK_NUM);
         for (int i = 0; i < TOPK_NUM; i++) {
-            // »ñÈ¡Ã¿Ò»¸öiÁÐÊý¾ÝµÄÎ»ÐÅÏ¢
+            // ï¿½ï¿½È¡Ã¿Ò»ï¿½ï¿½iï¿½ï¿½ï¿½ï¿½ï¿½Ýµï¿½Î»ï¿½ï¿½Ï¢
             auto* box_buffer = output_buffer + i * output_numprob;
-            // ÆäÖÐ4ÎªconfinceÖÃÐÅ¶È
+            // ï¿½ï¿½ï¿½ï¿½4Îªconfinceï¿½ï¿½ï¿½Å¶ï¿½
             if (box_buffer[4] < confidence_threshold) continue;
             if (removed[i]) continue;
             rst.emplace_back();
             auto& box = rst.back();
-            // box_buffer + 5 Î»ÒÆµ½¸ÃµØÖ·
+            // box_buffer + 5 Î»ï¿½Æµï¿½ï¿½Ãµï¿½Ö·
             memcpy(&box.pts, box_buffer + 5, 8 * sizeof(float));
             for (auto& pt : box.pts) {
                 pt.x = (pt.x - padd_w_) / (image_size - 2 * padd_w_) * image_width;
                 pt.y = (pt.y - padd_h_) / (image_size - 2 * padd_h_) * image_height;
             };
             box.confidence = sigmoid(box_buffer[4]);//prob * objness;
-            // ÀàÐÍµÄÖ¸ÕëÎª 13Ö®ºó
+            // ï¿½ï¿½ï¿½Íµï¿½Ö¸ï¿½ï¿½Îª 13Ö®ï¿½ï¿½
             float* pclass = box_buffer + modle_last_length;
             box.label = argmax(pclass, num_classes);
             for (int j = i + 1; j < TOPK_NUM; j++) {
@@ -184,7 +252,7 @@ namespace rm
         };
 
         std::vector<bbox_t> out_rst;
-        // label¹ýÂË
+        // labelï¿½ï¿½ï¿½ï¿½
         for (const auto& rst_ : rst)
             if (strip_filter(rst_.label, this->enemy_blue))
                 out_rst.push_back(rst_);
