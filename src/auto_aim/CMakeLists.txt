@@ -20,12 +20,21 @@ find_package(sensor_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(auto_aim_interfaces REQUIRED)
+find_package(CUDAToolkit REQUIRED)
 
-# OpenVINO 2024 exports OpenVINOConfig.cmake (not InferenceEngineConfig.cmake).
-if(DEFINED ENV{OpenVINO_DIR})
-  list(APPEND CMAKE_PREFIX_PATH "$ENV{OpenVINO_DIR}")
+find_path(TENSORRT_INCLUDE_DIR NvInfer.h
+  PATHS /usr/include /usr/include/aarch64-linux-gnu /usr/local/include
+)
+find_library(TENSORRT_NVINFER_LIB nvinfer
+  PATHS /usr/lib /usr/lib/aarch64-linux-gnu /usr/local/lib
+)
+find_library(TENSORRT_NVONNXPARSER_LIB nvonnxparser
+  PATHS /usr/lib /usr/lib/aarch64-linux-gnu /usr/local/lib
+)
+if(NOT TENSORRT_INCLUDE_DIR OR NOT TENSORRT_NVINFER_LIB OR NOT TENSORRT_NVONNXPARSER_LIB)
+  message(FATAL_ERROR "TensorRT (NvInfer + nvonnxparser) not found")
 endif()
-find_package(OpenVINO REQUIRED)
+include_directories(${TENSORRT_INCLUDE_DIR})
 
 # 递归编译全部文件
 file(GLOB_RECURSE DETECTOR_SOURCES
@@ -81,13 +90,19 @@ ament_target_dependencies(serial_send_data_node rclcpp
 
 
 
-target_link_libraries(auto_aim_detector_node fmt ${CERES_LIBRARIES} openvino::runtime)
+target_link_libraries(auto_aim_detector_node
+  fmt
+  ${CERES_LIBRARIES}
+  ${TENSORRT_NVINFER_LIB}
+  ${TENSORRT_NVONNXPARSER_LIB}
+  CUDA::cudart
+)
 
-target_link_libraries(auto_aim_processor_node fmt ${CERES_LIBRARIES} openvino::runtime)
+target_link_libraries(auto_aim_processor_node fmt ${CERES_LIBRARIES})
 
-target_link_libraries(serial_read_data_node fmt ${CERES_LIBRARIES} openvino::runtime)
+target_link_libraries(serial_read_data_node fmt ${CERES_LIBRARIES})
 
-target_link_libraries(serial_send_data_node fmt ${CERES_LIBRARIES} openvino::runtime)
+target_link_libraries(serial_send_data_node fmt ${CERES_LIBRARIES})
 
 install(TARGETS auto_aim_detector_node DESTINATION lib/${PROJECT_NAME})
 
@@ -98,4 +113,3 @@ install(TARGETS serial_read_data_node DESTINATION lib/${PROJECT_NAME})
 install(TARGETS serial_send_data_node DESTINATION lib/${PROJECT_NAME})
 
 ament_package()
-
