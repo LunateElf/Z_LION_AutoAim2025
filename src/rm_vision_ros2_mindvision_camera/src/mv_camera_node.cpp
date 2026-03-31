@@ -106,6 +106,24 @@ public:
     image_msg_.data.reserve(
       t_capability_.sResolutionRange.iHeightMax * t_capability_.sResolutionRange.iWidthMax * 3);
 
+    // Force camera to continuous acquisition mode to avoid stale trigger-mode timeout.
+    const int trigger_mode = this->declare_parameter("trigger_mode", 0);
+    i_status = CameraSetTriggerMode(h_camera_, trigger_mode);
+    if (i_status != CAMERA_STATUS_SUCCESS) {
+      RCLCPP_WARN(
+        this->get_logger(), "Failed to set trigger mode = %d, status = %d (%s)", trigger_mode,
+        i_status, CameraGetErrorString(i_status));
+    }
+    int current_trigger_mode = -1;
+    i_status = CameraGetTriggerMode(h_camera_, &current_trigger_mode);
+    if (i_status == CAMERA_STATUS_SUCCESS) {
+      RCLCPP_INFO(this->get_logger(), "Current trigger mode = %d", current_trigger_mode);
+    } else {
+      RCLCPP_WARN(
+        this->get_logger(), "Failed to get trigger mode, status = %d (%s)", i_status,
+        CameraGetErrorString(i_status));
+    }
+
     // 设置手动曝光
     CameraSetAeState(h_camera_, false);
 
@@ -115,9 +133,20 @@ public:
     // 让SDK进入工作模式，开始接收来自相机发送的图像
     // 数据。如果当前相机是触发模式，则需要接收到
     // 触发帧以后才会更新图像。
-    CameraPlay(h_camera_);
+    i_status = CameraPlay(h_camera_);
+    if (i_status != CAMERA_STATUS_SUCCESS) {
+      RCLCPP_ERROR(
+        this->get_logger(), "CameraPlay failed, status = %d (%s)", i_status,
+        CameraGetErrorString(i_status));
+      return;
+    }
 
-    CameraSetIspOutFormat(h_camera_, CAMERA_MEDIA_TYPE_RGB8);
+    i_status = CameraSetIspOutFormat(h_camera_, CAMERA_MEDIA_TYPE_RGB8);
+    if (i_status != CAMERA_STATUS_SUCCESS) {
+      RCLCPP_WARN(
+        this->get_logger(), "Set ISP output format failed, status = %d (%s)", i_status,
+        CameraGetErrorString(i_status));
+    }
 
     // Create camera publisher
     // rqt_image_view can't subscribe image msg with sensor_data QoS
@@ -179,7 +208,9 @@ public:
           CameraReleaseImageBuffer(h_camera_, pby_buffer_);
           fail_conut_ = 0;
         } else {
-          RCLCPP_WARN(this->get_logger(), "Failed to get image buffer, status = %d", status);
+          RCLCPP_WARN(
+            this->get_logger(), "Failed to get image buffer, status = %d (%s)", status,
+            CameraGetErrorString(status));
           fail_conut_++;
         }
 

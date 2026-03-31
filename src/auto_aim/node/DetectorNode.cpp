@@ -106,7 +106,9 @@ public:
             std::string yolo_model_path = get_parameter("YoloModel.yolo_model_path").as_string();
             // 模型尺寸
             int yolo_model_image_size = get_parameter("YoloModel.yolo_model_image_size").as_int();
+            RCLCPP_INFO(this->get_logger(), "Initializing YoloModel from: %s", yolo_model_path.c_str());
             YoloModel__ = new YoloModel(yolo_model_path, yolo_model_image_size);
+            RCLCPP_INFO(this->get_logger(), "YoloModel initialized");
         }
         else{
             // NumberFinder
@@ -264,12 +266,12 @@ private: // 参数
     int set_enemy_color; // 设置敌方颜色
     bool show_time_cost;
 private: // 组件
-    Machine* Machine__;
-    UsualLightFinder* UsualLightFinder__;
-    MiddleLightFinder* MiddleLightFinder__;
-    ArmorFinder* ArmorFinder__;
-    YoloModel* YoloModel__;
-    NumberFinder* NumberFinder__;
+    Machine* Machine__ = nullptr;
+    UsualLightFinder* UsualLightFinder__ = nullptr;
+    MiddleLightFinder* MiddleLightFinder__ = nullptr;
+    ArmorFinder* ArmorFinder__ = nullptr;
+    YoloModel* YoloModel__ = nullptr;
+    NumberFinder* NumberFinder__ = nullptr;
     std::unique_ptr<Detector> Detector__;
     
 public:

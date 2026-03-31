@@ -3,7 +3,7 @@
 
 /*************************************************/
 //
-// ´®¿ÚÍ¨Ñ¶¹Ø½Ú³ÉÔ±
+// ï¿½ï¿½ï¿½ï¿½Í¨Ñ¶ï¿½Ø½Ú³ï¿½Ô±
 //
 /*************************************************/
 #define Linux
@@ -19,13 +19,14 @@
 #include <iostream>
 #include <vector>
 #include <cstring>
+#include <cstdint>
 
 namespace rm
 {
-	// ½«Ò»¸öfloat°´ÕÕ60Îª½Ú,×ª»¯ÎªÆäÕûÊý²¿·ÖºÍÐ¡Êý²¿·Ö
+	// ï¿½ï¿½Ò»ï¿½ï¿½floatï¿½ï¿½ï¿½ï¿½60Îªï¿½ï¿½,×ªï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öºï¿½Ð¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	static void split_60(uint8_t& integer, uint8_t& decimal, float input)
 	{
-		input = -input; //... µ÷ÊÔÓÃ
+		input = -input; //... ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		if (input <= 0) {
 			integer = -ceil(input);
 			decimal = floor(abs(input - ceil(input)) * 100);
@@ -36,7 +37,7 @@ namespace rm
 		}
 	};
 
-	// ½«Ò»¸öfloat°´ÕÕ30Îª½Ú,×ª»¯ÎªÆäÕûÊý²¿·ÖºÍÐ¡Êý²¿·Ö
+	// ï¿½ï¿½Ò»ï¿½ï¿½floatï¿½ï¿½ï¿½ï¿½30Îªï¿½ï¿½,×ªï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öºï¿½Ð¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	static void split_30(uint8_t& integer, uint8_t& decimal, float input)
 	{
 		if (input < 0) {
@@ -55,25 +56,25 @@ namespace rm
 	};
 
 
-	/* ´®¿Ú»ùÀà */
+	/* ï¿½ï¿½ï¿½Ú»ï¿½ï¿½ï¿½ */
 	class SerialBase
 	{
 	public:
-		// ²Ù×÷·û
-		// 0: ³£Á¿·û
-		// 1: ³¤¶È·û
-		// 2: ³¤¶ÈÆðÊ¼·û
-		// 3: ³¤¶ÈÍ£Ö¹·û
-		// 4: CRC8Ð£Ñé·û
-		// 5: CRC16Ð£Ñé·û
+		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		// 0: ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		// 1: ï¿½ï¿½ï¿½È·ï¿½
+		// 2: ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½
+		// 3: ï¿½ï¿½ï¿½ï¿½Í£Ö¹ï¿½ï¿½
+		// 4: CRC8Ð£ï¿½ï¿½ï¿½
+		// 5: CRC16Ð£ï¿½ï¿½ï¿½
 		int operator_;
-		int size; // ËùÕ¼×Ö·ûÊý
-		bool variable = false; // ÊÇ·ñÎª±äÁ¿,±äÁ¿ÎÞÐè½øÐÐ¶ÔÓ¦Î»Ð£Ñé
-		virtual std::vector<uint8_t> process() = 0; // ´¦Àí
-		std::vector<uint8_t> _read_set_data_; // ±äÁ¿·ÅÈëµÄÊý¾Ý
+		int size; // ï¿½ï¿½Õ¼ï¿½Ö·ï¿½ï¿½ï¿½
+		bool variable = false; // ï¿½Ç·ï¿½Îªï¿½ï¿½ï¿½ï¿½,ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð¶ï¿½Ó¦Î»Ð£ï¿½ï¿½
+		virtual std::vector<uint8_t> process() = 0; // ï¿½ï¿½ï¿½ï¿½
+		std::vector<uint8_t> _read_set_data_; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	};
 
-	/* ´¿³£Á¿ */
+	/* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
 	class Constant : public SerialBase
 	{
 	public:
@@ -90,7 +91,7 @@ namespace rm
 		const uint8_t data;
 	};
 
-	/* uint_8ÀàÐÍ */
+	/* uint_8ï¿½ï¿½ï¿½ï¿½ */
 	class Uint_8 : public SerialBase
 	{
 	public:
@@ -114,7 +115,7 @@ namespace rm
 		uint8_t data = 0;
 	};
 
-	/* Float30ÀàÐÍ */
+	/* Float30ï¿½ï¿½ï¿½ï¿½ */
 	class Float30 : public SerialBase
 	{
 	public:
@@ -137,7 +138,7 @@ namespace rm
 		std::vector<uint8_t> data = { 0,0 };
 	};
 
-	/* Float60ÀàÐÍ */
+	/* Float60ï¿½ï¿½ï¿½ï¿½ */
 	class Float60 : public SerialBase
 	{
 	public:
@@ -160,7 +161,7 @@ namespace rm
 		std::vector<uint8_t> data = { 0,0 };
 	};
 
-	/* ´¿FloatÀàÐÍ */
+	/* ï¿½ï¿½Floatï¿½ï¿½ï¿½ï¿½ */
 	class Float : public SerialBase
 	{
 	public:
@@ -192,7 +193,7 @@ namespace rm
 		std::vector<uint8_t> data = { 0,0,0,0 };
 	};
 
-	/* ´¿intÀàÐÍ */
+	/* ï¿½ï¿½intï¿½ï¿½ï¿½ï¿½ */
 	class Int : public SerialBase
 	{
 	public:
@@ -203,8 +204,10 @@ namespace rm
 			variable = true;
 		};
 		void set_data(int input) {
+			// Protocol uses 2-byte integer payload.
+			int16_t value = static_cast<int16_t>(input);
 			uint8_t byte[2];
-			std::memcpy(byte, &input, sizeof(input));
+			std::memcpy(byte, &value, sizeof(byte));
 			this->data = { byte[0], byte[1] };
 			//const uint8_t* pre__ = reinterpret_cast<const uint8_t*>(&data);
 			//this->data = { pre__[0], pre__[1] , pre__[2] ,pre__[3] };
@@ -215,16 +218,16 @@ namespace rm
 		};
 		int back_data() {
 			auto byte = _read_set_data_.data();
-			int value;
+			int16_t value = 0;
 			std::memcpy(&value, byte, sizeof(value));
-			return value;
+			return static_cast<int>(value);
 		};
 
 	private:
-		std::vector<uint8_t> data = { 0,0,0,0 };
+		std::vector<uint8_t> data = { 0,0 };
 	};
 
-	/* ³¤¶È·ûÀàÐÍ */
+	/* ï¿½ï¿½ï¿½È·ï¿½ï¿½ï¿½ï¿½ï¿½ */
 	class Length : public SerialBase
 	{
 	public:
@@ -239,7 +242,7 @@ namespace rm
 		};
 	};
 
-	/* ³¤¶ÈÆðÊ¼·û */
+	/* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½ */
 	class LengthStart : public Constant
 	{
 	public:
@@ -251,7 +254,7 @@ namespace rm
 		};
 	};
 
-	/* ³¤¶ÈÍ£Ö¹·û */
+	/* ï¿½ï¿½ï¿½ï¿½Í£Ö¹ï¿½ï¿½ */
 	class LengthEnd : public Constant
 	{
 	public:
@@ -263,7 +266,7 @@ namespace rm
 		};
 	};
 
-	/* CRC8Ð£Ñé·û */
+	/* CRC8Ð£ï¿½ï¿½ï¿½ */
 	class CRC8 : public SerialBase
 	{
 	public:
@@ -278,7 +281,7 @@ namespace rm
 		};
 	};
 
-	/* CRC16Ð£Ñé·û */
+	/* CRC16Ð£ï¿½ï¿½ï¿½ */
 	class CRC16 : public SerialBase
 	{
 	public:

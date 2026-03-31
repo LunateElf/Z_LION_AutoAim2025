@@ -8,8 +8,9 @@
 /mv_camera:
   ros__parameters:
     camera_name: mv_camera
-    exposure_time: 3000  # 相机曝光时间
-    analog_gain: 24 # 增益
+    trigger_mode: 0
+    exposure_time: 6000  # 相机曝光时间
+    analog_gain: 8 # 增益
     image_rotation: 0 # 图像旋转角度，仅支持 0/90/180/270
 
 /auto_aim_detector_node: # 识别节点
@@ -31,10 +32,10 @@
       max_center_angle: 25.0
 
     YoloModel:
-      yolo_model_path: "/home/meta/vision_ws/src/auto_aim/models/yolo.onnx"  # 模型路径
+      yolo_model_path: "/home/meta/vision_TensorRT_ws/src/auto_aim/models/yolo.onnx"  # 模型路径
 
     NumberFinder:
-      number_model_path: "/home/meta/vision_ws/src/auto_aim/models/mlp.onnx" # 模型路径
+      number_model_path: "/home/meta/vision_TensorRT_ws/src/auto_aim/models/mlp.onnx" # 模型路径
 
 /auto_aim_processor_node: # 解算节点
   ros__parameters:
@@ -98,18 +99,18 @@
       trans_r_vs: [0.1, 0.13, 1.3] # 测量矩阵
 
     Processor:
-      vxz_truncation_rotate_rpm: 80.0 # 转速过高截断值
+      vxz_truncation_rotate_rpm: 0.0 # 转速过高截断值
       max_detect_distance: 400.0 # 最远检测距离
       
-    bullet_speed: 2330.0  # 弹速(cm/s)
+    bullet_speed: 2430.0  # 弹速(cm/s)
 
     PitchCompensator:
-      pitch_compensation_amplitude: 1.0 # pitch补偿增强权重
+      pitch_compensation_amplitude: 3.0 # pitch补偿增强权重
 
     RangeSetter:
       max_shoot_x: 6.75 # 射击坐标系下击打最小x尺寸
       max_shoot_y: 7.5 # 射击坐标系下击打最小y尺寸
-      max_shoot_middle_x: 0.5 # 瞄准中心的射击坐标系下击打最小x尺寸
+      max_shoot_middle_x: 1.5 # 瞄准中心的射击坐标系下击打最小x尺寸
       max_send_yaw: 16.0 # 传输的最大yaw
       max_send_pitch: 4.0 # 传输的最大pitch
       max_send_yaw_speed: 10000.0 # 传输的最大yaw_speed
@@ -119,7 +120,7 @@
       rotate_control_compensation_right: 0.08 # 旋转左转运动增强权值
 
     TimePredictor:
-      shoot_delay:  0.0155 # 发弹延迟
+      shoot_delay:  0.05 # 发弹延迟
       serial_delay: 0.005 # 通讯延迟
 
     ShootTrackStrategy:
@@ -150,7 +151,7 @@
 /serial_send_data_node: # 传输节点
   ros__parameters:
     debug: true # 调试模式
-    close_shoot: true # 关火
+    close_shoot: false # 关火
     negation_send_yaw: false # 对send_yaw取反
     negation_send_pitch: false # 对send_pitch取反
 

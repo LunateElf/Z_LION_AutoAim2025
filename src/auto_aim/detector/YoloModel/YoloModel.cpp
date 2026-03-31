@@ -1,6 +1,32 @@
 #include"YoloModel.h"
+#include <fstream>
 #include <numeric>
 #include <stdexcept>
+#include <vector>
+
+namespace {
+    bool has_suffix(const std::string& value, const std::string& suffix) {
+        if (value.size() < suffix.size()) return false;
+        return value.compare(value.size() - suffix.size(), suffix.size(), suffix) == 0;
+    }
+
+    bool read_binary_file(const std::string& path, std::vector<char>& out) {
+        std::ifstream file(path, std::ios::binary | std::ios::ate);
+        if (!file.is_open()) return false;
+        std::streamsize size = file.tellg();
+        if (size <= 0) return false;
+        file.seekg(0, std::ios::beg);
+        out.resize(static_cast<size_t>(size));
+        return static_cast<bool>(file.read(out.data(), size));
+    }
+
+    bool write_binary_file(const std::string& path, const void* data, size_t size) {
+        std::ofstream file(path, std::ios::binary | std::ios::trunc);
+        if (!file.is_open()) return false;
+        file.write(static_cast<const char*>(data), static_cast<std::streamsize>(size));
+        return static_cast<bool>(file);
+    }
+}
 
 namespace rm
 {
@@ -97,33 +123,76 @@ namespace rm
     YoloModel::YoloModel(std::string model_path, int image_size)
         :image_size(image_size)
     {
-        const auto explicit_batch = 1U << static_cast<uint32_t>(nvinfer1::NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
-        std::unique_ptr<nvinfer1::IBuilder, TrtDeleter<nvinfer1::IBuilder>> builder(nvinfer1::createInferBuilder(logger_));
-        if (!builder) throw std::runtime_error("TensorRT createInferBuilder failed");
-        std::unique_ptr<nvinfer1::INetworkDefinition, TrtDeleter<nvinfer1::INetworkDefinition>> network(
-            builder->createNetworkV2(explicit_batch));
-        if (!network) throw std::runtime_error("TensorRT createNetworkV2 failed");
-        std::unique_ptr<nvonnxparser::IParser, TrtDeleter<nvonnxparser::IParser>> parser(
-            nvonnxparser::createParser(*network, logger_));
-        if (!parser) throw std::runtime_error("TensorRT createParser failed");
-        if (!parser->parseFromFile(model_path.c_str(), static_cast<int>(nvinfer1::ILogger::Severity::kWARNING))) {
-            throw std::runtime_error("TensorRT parse ONNX failed: " + model_path);
-        }
-        std::unique_ptr<nvinfer1::IBuilderConfig, TrtDeleter<nvinfer1::IBuilderConfig>> config(builder->createBuilderConfig());
-        if (!config) throw std::runtime_error("TensorRT createBuilderConfig failed");
-#if NV_TENSORRT_MAJOR >= 8
-        config->setMemoryPoolLimit(nvinfer1::MemoryPoolType::kWORKSPACE, 1ULL << 30);
-#else
-        config->setMaxWorkspaceSize(1ULL << 30);
-#endif
-        if (builder->platformHasFastFp16()) config->setFlag(nvinfer1::BuilderFlag::kFP16);
-        std::unique_ptr<nvinfer1::IHostMemory, TrtDeleter<nvinfer1::IHostMemory>> serialized(
-            builder->buildSerializedNetwork(*network, *config));
-        if (!serialized) throw std::runtime_error("TensorRT buildSerializedNetwork failed");
         runtime_.reset(nvinfer1::createInferRuntime(logger_));
         if (!runtime_) throw std::runtime_error("TensorRT createInferRuntime failed");
-        engine_.reset(runtime_->deserializeCudaEngine(serialized->data(), serialized->size()));
-        if (!engine_) throw std::runtime_error("TensorRT deserializeCudaEngine failed");
+
+        std::string engine_path = model_path;
+        const bool model_is_engine = has_suffix(model_path, ".engine");
+        if (!model_is_engine) {
+            size_t dot = model_path.find_last_of('.');
+            if (dot == std::string::npos) {
+                engine_path = model_path + ".engine";
+            }
+            else {
+                engine_path = model_path.substr(0, dot) + ".engine";
+            }
+        }
+
+        std::vector<char> engine_data;
+        if (read_binary_file(engine_path, engine_data)) {
+            std::cerr << "[YoloModel] Loading TensorRT engine: " << engine_path << std::endl;
+            engine_.reset(runtime_->deserializeCudaEngine(engine_data.data(), engine_data.size()));
+            if (!engine_) {
+                std::cerr << "[YoloModel] Engine load failed, fallback to ONNX build" << std::endl;
+            }
+        }
+
+        if (!engine_) {
+            if (model_is_engine) {
+                throw std::runtime_error("TensorRT engine load failed: " + model_path);
+            }
+
+            std::cerr << "[YoloModel] Loading ONNX: " << model_path << std::endl;
+            const auto explicit_batch = 1U << static_cast<uint32_t>(nvinfer1::NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
+            std::unique_ptr<nvinfer1::IBuilder, TrtDeleter<nvinfer1::IBuilder>> builder(nvinfer1::createInferBuilder(logger_));
+            if (!builder) throw std::runtime_error("TensorRT createInferBuilder failed");
+            std::unique_ptr<nvinfer1::INetworkDefinition, TrtDeleter<nvinfer1::INetworkDefinition>> network(
+                builder->createNetworkV2(explicit_batch));
+            if (!network) throw std::runtime_error("TensorRT createNetworkV2 failed");
+            std::unique_ptr<nvonnxparser::IParser, TrtDeleter<nvonnxparser::IParser>> parser(
+                nvonnxparser::createParser(*network, logger_));
+            if (!parser) throw std::runtime_error("TensorRT createParser failed");
+            if (!parser->parseFromFile(model_path.c_str(), static_cast<int>(nvinfer1::ILogger::Severity::kWARNING))) {
+                throw std::runtime_error("TensorRT parse ONNX failed: " + model_path);
+            }
+
+            std::unique_ptr<nvinfer1::IBuilderConfig, TrtDeleter<nvinfer1::IBuilderConfig>> config(builder->createBuilderConfig());
+            if (!config) throw std::runtime_error("TensorRT createBuilderConfig failed");
+            constexpr size_t kWorkspaceBytes = 1ULL << 28; // 256MB, avoid OOM on embedded GPU
+#if NV_TENSORRT_MAJOR >= 8
+            config->setMemoryPoolLimit(nvinfer1::MemoryPoolType::kWORKSPACE, kWorkspaceBytes);
+#else
+            config->setMaxWorkspaceSize(kWorkspaceBytes);
+#endif
+            if (builder->platformHasFastFp16()) config->setFlag(nvinfer1::BuilderFlag::kFP16);
+
+            std::cerr << "[YoloModel] Building TensorRT engine..." << std::endl;
+            std::unique_ptr<nvinfer1::IHostMemory, TrtDeleter<nvinfer1::IHostMemory>> serialized(
+                builder->buildSerializedNetwork(*network, *config));
+            if (!serialized) throw std::runtime_error("TensorRT buildSerializedNetwork failed");
+            std::cerr << "[YoloModel] TensorRT engine build complete" << std::endl;
+
+            if (write_binary_file(engine_path, serialized->data(), serialized->size())) {
+                std::cerr << "[YoloModel] Cached TensorRT engine: " << engine_path << std::endl;
+            }
+            else {
+                std::cerr << "[YoloModel] Warning: failed to cache engine: " << engine_path << std::endl;
+            }
+
+            engine_.reset(runtime_->deserializeCudaEngine(serialized->data(), serialized->size()));
+            if (!engine_) throw std::runtime_error("TensorRT deserializeCudaEngine failed");
+        }
+
         context_.reset(engine_->createExecutionContext());
         if (!context_) throw std::runtime_error("TensorRT createExecutionContext failed");
 #if defined(NV_TENSORRT_MAJOR) && (NV_TENSORRT_MAJOR >= 10)
@@ -199,6 +268,7 @@ namespace rm
         if (cudaMalloc(&device_buffers_[output_index_], output_buffer_size_) != cudaSuccess)
             throw std::runtime_error("cudaMalloc output failed");
 #endif
+    std::cerr << "[YoloModel] TensorRT context initialized" << std::endl;
     };
 
     YoloModel::~YoloModel()
