@@ -47,7 +47,7 @@
 
       distcoeffs: [-0.086638, 0.216226, 0.001555, 0.001249, 0.000000] # distcoeffs of mv camera (sentry)
 
-      shaft_differ_x: 5.15 # 绝对坐标系x方向偏移量
+      shaft_differ_x: -5.35 # 绝对坐标系x方向偏移量
       shaft_differ_y: 0.0 # 绝对坐标系y方向偏移量
       shaft_differ_z: 14.4 # 绝对坐标系z方向偏移量
 
