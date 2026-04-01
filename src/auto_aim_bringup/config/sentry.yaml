@@ -40,13 +40,12 @@
   ros__parameters:
     debug: true
     Coordinate:
-      # intrinsic: [2370.573108953692, 0.0, 711.1306749974372, 0.0, 2370.263325810751, 571.3160085742733,0.0, 0.0, 1.0] # 相机内参
+      
       intrinsic:  [1329.11502,    0.     ,  649.51151,
                       0.     , 1328.3022 ,  463.33489,
-                      0.     ,    0.     ,    1.     ] #intrinsic of mv camera (unused mv cam)
-      
-      # distcoeffs: [-0.08590936981698154, 1.171532639048541, -0.001884908679011257, -0.0031928983215215, -5.942126178608666]  # 相机外参
-      distcoeffs: [-0.086638, 0.216226, 0.001555, 0.001249, 0.000000] # distcoeffs of mv camera (unused mv cam)
+                      0.     ,    0.     ,    1.     ] #intrinsic of mv camera (sentry)
+
+      distcoeffs: [-0.086638, 0.216226, 0.001555, 0.001249, 0.000000] # distcoeffs of mv camera (sentry)
 
       shaft_differ_x: 5.15 # 绝对坐标系x方向偏移量
       shaft_differ_y: 0.0 # 绝对坐标系y方向偏移量

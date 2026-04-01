@@ -45,12 +45,18 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             name='mv_camera_info_url',
-            default_value='package://mindvision_camera/config/camera_info.yaml',
+            default_value=PathJoinSubstitution([
+                'package://mindvision_camera/config',
+                PythonExpression(["'camera_info_' + '", config_profile, "' + '.yaml'"])
+            ]),
             description='MindVision camera info url'
         ),
         DeclareLaunchArgument(
             name='hik_camera_info_url',
-            default_value='package://hik_camera/config/camera_info.yaml',
+            default_value=PathJoinSubstitution([
+                'package://hik_camera/config',
+                PythonExpression(["'camera_info_' + '", config_profile, "' + '.yaml'"])
+            ]),
             description='Hik camera info url'
         ),
         DeclareLaunchArgument(name='use_sensor_data_qos',

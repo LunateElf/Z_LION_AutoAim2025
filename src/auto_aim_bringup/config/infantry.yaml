@@ -32,10 +32,10 @@
       max_center_angle: 25.0
 
     YoloModel:
-      yolo_model_path: "/home/meta/vision_TensorRT_ws/src/auto_aim/models/yolo.onnx"  # 模型路径
+      yolo_model_path: "/home/meta/vision_ws/src/auto_aim/models/yolo.onnx"  # 模型路径
 
     NumberFinder:
-      number_model_path: "/home/meta/vision_TensorRT_ws/src/auto_aim/models/mlp.onnx" # 模型路径
+      number_model_path: "/home/meta/vision_ws/src/auto_aim/models/mlp.onnx" # 模型路径
 
 /auto_aim_processor_node: # 解算节点
   ros__parameters:
