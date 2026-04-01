@@ -9,8 +9,8 @@
   ros__parameters:
     camera_name: mv_camera
     exposure_time: 6000  # 相机曝光时间
-    analog_gain: 24 # 增益
-    image_rotation: 270 # 图像旋转角度，仅支持 0/90/180/270
+    analog_gain: 8 # 增益
+    image_rotation: 90 # 图像旋转角度，仅支持 0/90/180/270
 
 /auto_aim_detector_node: # 识别节点
   ros__parameters:
@@ -86,7 +86,7 @@
       vxz_truncation_rotate_rpm: 80.0 # 转速过高截断值
       max_detect_distance: 400.0 # 最远检测距离
       
-    bullet_speed: 2330.0  # 弹速(cm/s)
+    bullet_speed: 2230.0  # 弹速(cm/s)
 
     PitchCompensator:
       pitch_compensation_amplitude: 0.15 # pitch补偿增强权重
@@ -136,20 +136,20 @@
   ros__parameters:
     debug: true # 调试模式
     close_shoot: false # 关火
-    negation_send_yaw: true # 对send_yaw取反
-    negation_send_pitch: true # 对send_pitch取反
+    negation_send_yaw: false # 对send_yaw取反
+    negation_send_pitch: false # 对send_pitch取反
 
 /serial_read_data_node: # 接收节点
   ros__parameters:
     debug: true # 调试模式
-    negation_read_yaw: true # 对read_yaw取反
-    negation_read_pitch: true # 对read_pitch取反
+    negation_read_yaw: false # 对read_yaw取反
+    negation_read_pitch: false # 对read_pitch取反
 
 /auto_aim_debug_node: # 调试节点
   ros__parameters:
     show: true # 显示图像
-    show_detect: true # 仅展示detect层
-    show_process: false # 仅展示process层
+    show_detect: false # 仅展示detect层
+    show_process: true # 仅展示process层
     show_time_cost: false # 展示耗时
     open_origin_image_loader: false
     open_show_image_loader: false

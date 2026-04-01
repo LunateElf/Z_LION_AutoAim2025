@@ -1,0 +1,21 @@
+# Unused since infantry uses mv camera
+image_width: 1440
+image_height: 1080
+camera_name: narrow_stereo
+camera_matrix:
+  rows: 3
+  cols: 3
+  data: [1329.11502, 0.000000, 649.51151, 0.000000, 1328.3022, 463.33489, 0.000000, 0.000000, 1.000000]
+distortion_model: plumb_bob
+distortion_coefficients:
+  rows: 1
+  cols: 5
+  data: [-0.086638, 0.216226, 0.001555, 0.001249, 0.000000]
+rectification_matrix:
+  rows: 3
+  cols: 3
+  data: [1.000000, 0.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000, 0.000000, 1.000000]
+projection_matrix:
+  rows: 3
+  cols: 4
+  data: [1329.11502, 0.000000, 649.51151, 0.000000, 0.000000, 1328.3022, 463.33489, 0.000000, 0.000000, 0.000000, 1.000000, 0.000000]

@@ -161,6 +161,12 @@ public:
       std::make_unique<camera_info_manager::CameraInfoManager>(this, camera_name_);
     auto camera_info_url = this->declare_parameter(
       "camera_info_url", "package://mindvision_camera/config/camera_info.yaml");
+    if (camera_info_url.rfind("package:/", 0) == 0 && camera_info_url.rfind("package://", 0) != 0) {
+      camera_info_url = "package://" + camera_info_url.substr(9);
+      RCLCPP_WARN(
+        this->get_logger(), "camera_info_url uses deprecated format, auto-corrected to: %s",
+        camera_info_url.c_str());
+    }
     if (camera_info_manager_->validateURL(camera_info_url)) {
       camera_info_manager_->loadCameraInfo(camera_info_url);
       camera_info_msg_ = camera_info_manager_->getCameraInfo();

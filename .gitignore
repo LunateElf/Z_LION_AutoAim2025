@@ -5,3 +5,5 @@ log/*
 Camera/*
 *.log
 .boo/*
+**/__pycache__/
+*.pyc
