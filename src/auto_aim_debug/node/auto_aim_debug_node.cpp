@@ -1,4 +1,5 @@
 #include "../src/debugger/Debugger.h"
+#include <cstdlib>
 
 using namespace rm;
 
@@ -10,6 +11,18 @@ public:
         last_time = get_now_time();
         // set
         show = this->declare_parameter("show", false);
+        bool enable_gui = this->declare_parameter("enable_gui", true);
+        const char * display_env = std::getenv("DISPLAY");
+        const char * wayland_env = std::getenv("WAYLAND_DISPLAY");
+        gui_available_ =
+            ((display_env != nullptr) && (display_env[0] != '\0')) ||
+            ((wayland_env != nullptr) && (wayland_env[0] != '\0'));
+        if (show && enable_gui && !gui_available_) {
+            RCLCPP_WARN(this->get_logger(),
+                "show=true but no GUI backend detected (DISPLAY/WAYLAND_DISPLAY empty). "
+                "Disable window rendering.");
+        }
+        gui_enabled_ = show && enable_gui && gui_available_;
         show_time_cost = this->declare_parameter("show_time_cost", true);
         show_true_car = this->declare_parameter("show_true_car", true);
         show_pred_car = this->declare_parameter("show_pred_car", true);
@@ -202,9 +215,15 @@ private:
             cv::resize(src, show_src, cv::Size(debug_image_width, debug_image_height));
         }
 
-        if(show){
-            cv::imshow("DebugNode",show_src);
-            cv::waitKey(1);
+        if(gui_enabled_){
+            try {
+                cv::imshow("DebugNode",show_src);
+                cv::waitKey(1);
+            } catch (const cv::Exception & e) {
+                RCLCPP_WARN(this->get_logger(),
+                    "Disable GUI rendering due to OpenCV highgui exception: %s", e.what());
+                gui_enabled_ = false;
+            }
         };
         if(show_image_loader != NULL) show_image_loader->load_in_video(show_src);
         // 每次循环清空
@@ -256,6 +275,8 @@ private:
     int debug_image_height;
     double detector_debug_downsample_ratio;
     bool show; // 是否显示图像
+    bool gui_enabled_ = false;
+    bool gui_available_ = false;
     bool show_time_cost;
     bool show_true_car;
     bool show_pred_car;

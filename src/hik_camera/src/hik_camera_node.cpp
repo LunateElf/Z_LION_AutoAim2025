@@ -56,6 +56,57 @@ std::vector<uint8_t> rotateRgbImage(
 
   return dst;
 }
+
+sensor_msgs::msg::CameraInfo rotateCameraInfo(
+  const sensor_msgs::msg::CameraInfo & src, const int rotation)
+{
+  sensor_msgs::msg::CameraInfo dst = src;
+  if (rotation == 0) {
+    return dst;
+  }
+
+  const double src_width = static_cast<double>(src.width);
+  const double src_height = static_cast<double>(src.height);
+
+  const double fx = src.k[0];
+  const double fy = src.k[4];
+  const double cx = src.k[2];
+  const double cy = src.k[5];
+
+  if (rotation == 90) {
+    dst.width = src.height;
+    dst.height = src.width;
+    dst.k[0] = fy;
+    dst.k[2] = src_height - 1.0 - cy;
+    dst.k[4] = fx;
+    dst.k[5] = cx;
+
+    dst.p[0] = src.p[5];
+    dst.p[2] = src_height - 1.0 - src.p[6];
+    dst.p[5] = src.p[0];
+    dst.p[6] = src.p[2];
+  } else if (rotation == 180) {
+    dst.k[2] = src_width - 1.0 - cx;
+    dst.k[5] = src_height - 1.0 - cy;
+
+    dst.p[2] = src_width - 1.0 - src.p[2];
+    dst.p[6] = src_height - 1.0 - src.p[6];
+  } else {  // rotation == 270
+    dst.width = src.height;
+    dst.height = src.width;
+    dst.k[0] = fy;
+    dst.k[2] = cy;
+    dst.k[4] = fx;
+    dst.k[5] = src_width - 1.0 - cx;
+
+    dst.p[0] = src.p[5];
+    dst.p[2] = src.p[6];
+    dst.p[5] = src.p[0];
+    dst.p[6] = src_width - 1.0 - src.p[2];
+  }
+
+  return dst;
+}
 }  // namespace
 
 namespace hik_camera
@@ -101,7 +152,7 @@ public:
     MV_CC_StartGrabbing(camera_handle_);
 
     // Load camera info
-    camera_name_ = this->declare_parameter("camera_name", "narrow_stereo");
+    camera_name_ = this->declare_parameter("camera_name", "hik_camera");
     camera_info_manager_ =
       std::make_unique<camera_info_manager::CameraInfoManager>(this, camera_name_);
     auto camera_info_url =
@@ -114,7 +165,8 @@ public:
     }
     if (camera_info_manager_->validateURL(camera_info_url)) {
       camera_info_manager_->loadCameraInfo(camera_info_url);
-      camera_info_msg_ = camera_info_manager_->getCameraInfo();
+      raw_camera_info_msg_ = camera_info_manager_->getCameraInfo();
+      camera_info_msg_ = rotateCameraInfo(raw_camera_info_msg_, image_rotation_);
     } else {
       RCLCPP_WARN(this->get_logger(), "Invalid camera info URL: %s", camera_info_url.c_str());
     }
@@ -157,6 +209,8 @@ public:
 
           image_msg_.header.stamp = this->now();
 
+          camera_info_msg_.width = image_msg_.width;
+          camera_info_msg_.height = image_msg_.height;
           camera_info_msg_.header = image_msg_.header;
           camera_pub_.publish(image_msg_, camera_info_msg_);
 
@@ -251,6 +305,7 @@ private:
           result.reason = "image_rotation must be one of [0, 90, 180, 270]";
         } else {
           image_rotation_ = rotation;
+          camera_info_msg_ = rotateCameraInfo(raw_camera_info_msg_, image_rotation_);
         }
       } else {
         result.successful = false;
@@ -273,6 +328,7 @@ private:
 
   std::string camera_name_;
   std::unique_ptr<camera_info_manager::CameraInfoManager> camera_info_manager_;
+  sensor_msgs::msg::CameraInfo raw_camera_info_msg_;
   sensor_msgs::msg::CameraInfo camera_info_msg_;
 
   int fail_conut_ = 0;

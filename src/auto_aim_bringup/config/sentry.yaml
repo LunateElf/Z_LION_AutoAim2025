@@ -10,7 +10,7 @@
     camera_name: mv_camera
     exposure_time: 6000  # 相机曝光时间
     analog_gain: 8 # 增益
-    image_rotation: 90 # 图像旋转角度，仅支持 0/90/180/270
+    image_rotation: 0 # 图像旋转角度，仅支持 0/90/180/270
 
 /auto_aim_detector_node: # 识别节点
   ros__parameters:
@@ -54,8 +54,8 @@
       sot_shaft_differ_x: 5.15 # 转到射击坐标系偏移x
       sot_shaft_differ_y: 0.0 # 转到射击坐标系偏移y
       sot_shaft_differ_z: 7.9 # 转到射击坐标系偏移z
-      sot_shifting_yaw: 0.0 # 转到射击坐标系偏移yaw
-      sot_shifting_pitch: 0.0 # 转到射击坐标系偏移pitch
+      sot_shifting_yaw: -0.5 # 转到射击坐标系偏移yaw
+      sot_shifting_pitch: 1.0 # 转到射击坐标系偏移pitch
       
     DiagonalAngleSolver:
       inclined: 0.392 # 倾斜性权重
@@ -89,7 +89,7 @@
     bullet_speed: 2230.0  # 弹速(cm/s)
 
     PitchCompensator:
-      pitch_compensation_amplitude: 0.15 # pitch补偿增强权重
+      pitch_compensation_amplitude: 1.0 # pitch补偿增强权重
 
     RangeSetter:
       max_shoot_x: 6.75 # 射击坐标系下击打最小x尺寸
@@ -136,14 +136,14 @@
   ros__parameters:
     debug: true # 调试模式
     close_shoot: false # 关火
-    negation_send_yaw: false # 对send_yaw取反
+    negation_send_yaw: true # 对send_yaw取反
     negation_send_pitch: false # 对send_pitch取反
 
 /serial_read_data_node: # 接收节点
   ros__parameters:
     debug: true # 调试模式
-    negation_read_yaw: false # 对read_yaw取反
-    negation_read_pitch: false # 对read_pitch取反
+    negation_read_yaw: true # 对read_yaw取反
+    negation_read_pitch: true # 对read_pitch取反
 
 /auto_aim_debug_node: # 调试节点
   ros__parameters:
