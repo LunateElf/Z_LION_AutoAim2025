@@ -96,7 +96,12 @@ private:
             exit(1);
         }
         else{
-            fd = fd1 == -1 ? fd2 : fd1;
+            if (fd1 != -1 && fd2 != -1) {
+                close(fd2);
+                fd = fd1;
+            } else {
+                fd = fd1 == -1 ? fd2 : fd1;
+            }
             RCLCPP_INFO(this->get_logger(),"Open serial!!!");
         };
         struct termios config;
