@@ -88,11 +88,12 @@ private: // 缓冲区信息和地址
 private:
     void open_serial()
     {
-        int fd1 = open("/dev/ttyUSB0", O_RDWR | O_NOCTTY);
-        int fd2 = open("/dev/ttyUSB1", O_RDWR | O_NOCTTY);
+        int fd1 = open("/dev/ttyACM0", O_RDWR | O_NOCTTY);
+        int fd2 = open("/dev/ttyACM1", O_RDWR | O_NOCTTY);
         if (fd1 == -1 && fd2 == -1) {
-            RCLCPP_ERROR(this->get_logger(),"Can't open serial");
-            exit(0);
+            RCLCPP_FATAL(this->get_logger(), "Can't open /dev/ttyACM* serial device, exiting...");
+            rclcpp::shutdown();
+            exit(1);
         }
         else{
             fd = fd1 == -1 ? fd2 : fd1;
