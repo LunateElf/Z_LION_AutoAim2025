@@ -20,9 +20,9 @@ Usage:
   $(basename "$0") [options]
 
 Options:
-  -c, --camera-type <hik|mindvision>   Camera driver to launch (default: hik)
+  -c, --camera-type <hik|mindvision>   Camera driver to check (default: hik)
   -p, --profile <default|hero|sentry|infantry>
-                                        Auto-aim profile name (default: hero)
+                                        Auto-aim profile to check (default: hero)
   -h, --help                            Show this help
 
 Examples:
@@ -288,14 +288,8 @@ main() {
   stop_desktop_if_needed
 
   cd "$WORKSPACE"
-  source_env
-  setup_display_for_ssh_debug
-
-  info "Launching auto aim"
-  info "Command: ros2 launch auto_aim_bringup debug.py camera_type:=$CAMERA_TYPE profile:=$PROFILE"
-  ros2 launch auto_aim_bringup debug.py \
-    camera_type:="$CAMERA_TYPE" \
-    profile:="$PROFILE"
+  info "All checks passed."
+  info "Use vision_up alias to launch auto aim in tmux window."
 }
 
 main "$@"

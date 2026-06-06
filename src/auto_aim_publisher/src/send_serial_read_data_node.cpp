@@ -35,7 +35,7 @@ public:
 private:
     void timer_callback() {
         auto message = auto_aim_interfaces::msg::SerialReadData();
-        message.enemy_color = 2;
+        message.enemy_color = 1;
         message.car_yaw = 0.542;
         message.car_pitch = -0.081;
 

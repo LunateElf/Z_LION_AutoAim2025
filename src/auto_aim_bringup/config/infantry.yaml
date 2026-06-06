@@ -1,9 +1,9 @@
 /hik_camera:
   ros__parameters:
     camera_name: hik_camera
-    exposure_time: 6000  # 相机曝光时间
+    exposure_time: 18000  # 相机曝光时间
     gain: 32.0 # 增益
-    image_rotation: 180 # 图像旋转角度，仅支持 0/90/180/270 （适配英雄反着装的相机）
+    image_rotation: 0 # 图像旋转角度，仅支持 0/90/180/270 （适配英雄反着装的相机）
 
 /mv_camera:
   ros__parameters:
@@ -41,7 +41,6 @@
   ros__parameters:
     debug: true
     Coordinate:
-      # intrinsic: [2370.573108953692, 0.0, 711.1306749974372, 0.0, 2370.263325810751, 571.3160085742733,0.0, 0.0, 1.0] # 相机内参
       # intrinsic:  [1769.30674,    0.     ,  711.59362,
       #                 0.     , 1769.28742,  562.72304,
       #                 0.     ,    0.     ,    1.     ]  # intrinsic of hik camera
@@ -49,7 +48,6 @@
                       0.     , 1273.26422,  582.41381,
                       0.     ,    0.     ,    1.     ] #intrinsic of infantry mv camera
       
-      # distcoeffs: [-0.08590936981698154, 1.171532639048541, -0.001884908679011257, -0.0031928983215215, -5.942126178608666]  # 相机外参
       # distcoeffs: [-0.061714, 0.056389, -0.000796, -0.000933, 0.000000]  # distcoeffs of hik camera
       distcoeffs: [-0.101470, 0.165034, 0.014105, 0.005597, 0.000000] # distcoeffs of infantry mv camera
 
